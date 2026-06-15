@@ -68,6 +68,43 @@ const DASHBOARD_FLOW_OPTIONS = [
   { value: 'KOTOR', label: 'Waste Kotor' },
 ];
 
+const REPORT_SHIFT_ORDER = ['SHIFT 1', 'SHIFT 2', 'SHIFT 3'];
+
+const REPORT_SOURCE_BUCKETS = [
+  { key: 'PRODUKSI-1112', area: 'PRODUKSI', plant: '1112', label: 'Produksi 1112' },
+  { key: 'PRODUKSI-1113', area: 'PRODUKSI', plant: '1113', label: 'Produksi 1113' },
+  { key: 'PACKING-1112', area: 'PACKING', plant: '1112', label: 'Packing 1112' },
+  { key: 'PACKING-1113', area: 'PACKING', plant: '1113', label: 'Packing 1113' },
+];
+
+function normalizeReportShift(value) {
+  const text = String(value || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  if (text.includes('1')) return 'SHIFT 1';
+  if (text.includes('2')) return 'SHIFT 2';
+  if (text.includes('3')) return 'SHIFT 3';
+  return 'SHIFT 3';
+}
+
+function getShiftRank(value) {
+  const shift = normalizeReportShift(value);
+  const index = REPORT_SHIFT_ORDER.indexOf(shift);
+  return index === -1 ? 99 : index;
+}
+
+function normalizeReportArea(value) {
+  const text = String(value || '').toUpperCase().trim();
+  if (text.includes('PACK')) return 'PACKING';
+  if (text.includes('PROD')) return 'PRODUKSI';
+  return text || '-';
+}
+
+function normalizeReportPlant(value) {
+  const text = String(value || '').toUpperCase().trim();
+  if (text.includes('1112')) return '1112';
+  if (text.includes('1113')) return '1113';
+  return text || '-';
+}
+
 
 function todayYmd() {
   const d = new Date();
@@ -2507,6 +2544,184 @@ const dashboardTopWasteSourceMax = useMemo(() => {
   return Math.max(1, ...dashboardTopWasteSource.map((item) => item.qty || 0));
 }, [dashboardTopWasteSource]);
 
+const dashboardShiftReport = useMemo(() => {
+  const shiftMap = new Map();
+
+  function ensureShift(shiftValue) {
+    const shift = normalizeReportShift(shiftValue);
+
+    if (!shiftMap.has(shift)) {
+      shiftMap.set(shift, {
+        shift,
+        wasteRows: [],
+        wasteTotalKg: 0,
+        wasteCount: 0,
+        hasilRows: [],
+        progressRows: [],
+        hasilWasteKg: 0,
+        hasilBubukKg: 0,
+        progressKg: 0,
+        bonanRows: [],
+        bonanKg: 0,
+        bonanPcs: 0,
+      });
+    }
+
+    return shiftMap.get(shift);
+  }
+
+  REPORT_SHIFT_ORDER.forEach((shift) => ensureShift(shift));
+
+  const wasteMap = new Map();
+  dashboardFiltered.wasteMasuk.forEach((item) => {
+    const shift = normalizeReportShift(item.shift);
+    const area = normalizeReportArea(item.area_asal);
+    const plant = normalizeReportPlant(item.plant_asal || item.plant);
+    const bucket = REPORT_SOURCE_BUCKETS.find((source) => source.area === area && source.plant === plant);
+
+    if (!bucket) return;
+
+    const nama = item.nama_waste || '-';
+    const kode = item.kode_waste || '';
+    const key = `${shift}||${bucket.key}||${kode}||${nama}`;
+    const old = wasteMap.get(key) || {
+      shift,
+      bucketKey: bucket.key,
+      bucketLabel: bucket.label,
+      kode,
+      nama,
+      qtyKg: 0,
+      count: 0,
+    };
+
+    old.qtyKg += Number(item.qty_masuk || 0);
+    old.count += 1;
+    wasteMap.set(key, old);
+
+    const shiftData = ensureShift(shift);
+    shiftData.wasteTotalKg += Number(item.qty_masuk || 0);
+    shiftData.wasteCount += 1;
+  });
+
+  wasteMap.forEach((row) => {
+    ensureShift(row.shift).wasteRows.push(row);
+  });
+
+  const hasilMap = new Map();
+  dashboardFiltered.hasilGiling.forEach((item) => {
+    const shift = normalizeReportShift(item.shift);
+    const nama = item.nama_bubuk || item.nama_waste || '-';
+    const kode = item.kode_bubuk || item.kode_waste || '';
+    const key = `${shift}||${kode}||${nama}`;
+    const old = hasilMap.get(key) || {
+      shift,
+      kode,
+      nama,
+      wasteKg: 0,
+      bubukKg: 0,
+      kotorKg: 0,
+      count: 0,
+    };
+
+    old.wasteKg += Number(item.qty_proses_giling || 0);
+    old.bubukKg += Number(item.qty_bersih || 0);
+    old.kotorKg += Number(item.qty_kotor || 0);
+    old.count += 1;
+    hasilMap.set(key, old);
+
+    const shiftData = ensureShift(shift);
+    shiftData.hasilWasteKg += Number(item.qty_proses_giling || 0);
+    shiftData.hasilBubukKg += Number(item.qty_bersih || 0);
+  });
+
+  hasilMap.forEach((row) => {
+    ensureShift(row.shift).hasilRows.push(row);
+  });
+
+  const progressMap = new Map();
+  dashboardFiltered.prosesGiling.forEach((item) => {
+    const progressKg = Number(item.sisa_proses_giling || 0);
+    if (progressKg <= 0) return;
+
+    const shift = normalizeReportShift(item.shift);
+    const nama = item.nama_waste || '-';
+    const kode = item.kode_waste || '';
+    const key = `${shift}||${kode}||${nama}`;
+    const old = progressMap.get(key) || {
+      shift,
+      kode,
+      nama,
+      progressKg: 0,
+      count: 0,
+    };
+
+    old.progressKg += progressKg;
+    old.count += 1;
+    progressMap.set(key, old);
+
+    ensureShift(shift).progressKg += progressKg;
+  });
+
+  progressMap.forEach((row) => {
+    ensureShift(row.shift).progressRows.push(row);
+  });
+
+  const bonanMap = new Map();
+  dashboardFiltered.pengiriman.forEach((item) => {
+    const shift = normalizeReportShift(item.shift);
+    const nama = item.nama_bubuk || '-';
+    const kode = item.kode_bubuk || '';
+    const key = `${shift}||${kode}||${nama}`;
+    const old = bonanMap.get(key) || {
+      shift,
+      kode,
+      nama,
+      qtyPcs: 0,
+      qtyKg: 0,
+      count: 0,
+    };
+
+    old.qtyPcs += Number(item.qty_pcs_kirim || 0);
+    old.qtyKg += Number(item.qty_kirim || 0);
+    old.count += 1;
+    bonanMap.set(key, old);
+
+    const shiftData = ensureShift(shift);
+    shiftData.bonanKg += Number(item.qty_kirim || 0);
+    shiftData.bonanPcs += Number(item.qty_pcs_kirim || 0);
+  });
+
+  bonanMap.forEach((row) => {
+    ensureShift(row.shift).bonanRows.push(row);
+  });
+
+  const shifts = [...shiftMap.values()]
+    .sort((a, b) => getShiftRank(a.shift) - getShiftRank(b.shift))
+    .map((item) => ({
+      ...item,
+      wasteRows: item.wasteRows.sort((a, b) => getShiftRank(a.shift) - getShiftRank(b.shift) || String(a.bucketLabel).localeCompare(String(b.bucketLabel)) || b.qtyKg - a.qtyKg),
+      hasilRows: item.hasilRows.sort((a, b) => b.bubukKg - a.bubukKg),
+      progressRows: item.progressRows.sort((a, b) => b.progressKg - a.progressKg),
+      bonanRows: item.bonanRows.sort((a, b) => b.qtyKg - a.qtyKg),
+    }));
+
+  const totals = shifts.reduce(
+    (sum, item) => {
+      sum.wasteKg += Number(item.wasteTotalKg || 0);
+      sum.wasteCount += Number(item.wasteCount || 0);
+      sum.hasilWasteKg += Number(item.hasilWasteKg || 0);
+      sum.hasilBubukKg += Number(item.hasilBubukKg || 0);
+      sum.progressKg += Number(item.progressKg || 0);
+      sum.bonanKg += Number(item.bonanKg || 0);
+      sum.bonanPcs += Number(item.bonanPcs || 0);
+      return sum;
+    },
+    { wasteKg: 0, wasteCount: 0, hasilWasteKg: 0, hasilBubukKg: 0, progressKg: 0, bonanKg: 0, bonanPcs: 0 }
+  );
+
+  return { shifts, totals };
+}, [dashboardFiltered]);
+
 const dashboardYieldAnomalies = useMemo(() => {
   return dashboardFiltered.hasilGiling
     .map((item) => ({ ...item, yieldValue: getYieldValue(item) }))
@@ -2608,6 +2823,85 @@ function quickSetDashboardPeriod(days) {
 function handleExportDashboardPdf() {
   setDashTab('overview');
   setTimeout(() => window.print(), 250);
+}
+
+function handlePrintShiftReport() {
+  setDashTab('laporan');
+  setTimeout(() => window.print(), 250);
+}
+
+function handleExportShiftReportExcel() {
+  const exportAt = `${formatDate(new Date())} ${formatTime(new Date())}`;
+  const periodText = dashStartDate === dashEndDate ? dashStartDate : `${dashStartDate} s/d ${dashEndDate}`;
+  const rows = [
+    ['BSWP SHIFT REPORT'],
+    ['Periode', periodText],
+    ['Export', exportAt],
+    ['Filter Plant', dashPlant],
+    ['Filter Line', dashLine],
+    [],
+    ['RINGKASAN TOTAL'],
+    ['Waste Masuk KG', dashboardShiftReport.totals.wasteKg],
+    ['Waste Masuk Input', dashboardShiftReport.totals.wasteCount],
+    ['Hasil Giling - Waste Proses KG', dashboardShiftReport.totals.hasilWasteKg],
+    ['Hasil Giling - Bubuk Bersih KG', dashboardShiftReport.totals.hasilBubukKg],
+    ['Masih Progress KG', dashboardShiftReport.totals.progressKg],
+    ['Bonan PCS', dashboardShiftReport.totals.bonanPcs],
+    ['Bonan KG', dashboardShiftReport.totals.bonanKg],
+    [],
+    ['WASTE MASUK PER SHIFT'],
+  ];
+
+  dashboardShiftReport.shifts.forEach((shift) => {
+    rows.push([shift.shift]);
+    rows.push(['Area / Plant', 'Nama Waste', 'Kode', 'KG', 'Jumlah Input']);
+    shift.wasteRows.forEach((item) => {
+      rows.push([item.bucketLabel, item.nama, item.kode, item.qtyKg, item.count]);
+    });
+    rows.push(['TOTAL', '', '', shift.wasteTotalKg, shift.wasteCount]);
+    rows.push([]);
+  });
+
+  rows.push([]);
+  rows.push(['HASIL GILING PER SHIFT']);
+  dashboardShiftReport.shifts.forEach((shift) => {
+    rows.push([shift.shift]);
+    rows.push(['Nama Bubuk', 'Kode', 'Waste Proses KG', 'Hasil Bubuk KG', 'Waste Kotor KG', 'Jumlah Batch']);
+    shift.hasilRows.forEach((item) => {
+      rows.push([item.nama, item.kode, item.wasteKg, item.bubukKg, item.kotorKg, item.count]);
+    });
+    rows.push(['TOTAL', '', shift.hasilWasteKg, shift.hasilBubukKg, '', '']);
+    rows.push(['MASIH PROGRESS']);
+    rows.push(['Nama Waste', 'Kode', 'Progress KG', 'Jumlah ID']);
+    shift.progressRows.forEach((item) => {
+      rows.push([item.nama, item.kode, item.progressKg, item.count]);
+    });
+    rows.push(['TOTAL PROGRESS', '', shift.progressKg, '']);
+    rows.push([]);
+  });
+
+  rows.push([]);
+  rows.push(['BONAN PER SHIFT']);
+  dashboardShiftReport.shifts.forEach((shift) => {
+    rows.push([shift.shift]);
+    rows.push(['Nama Bubuk', 'Kode', 'PCS', 'KG', 'Jumlah Bonan']);
+    shift.bonanRows.forEach((item) => {
+      rows.push([item.nama, item.kode, item.qtyPcs, item.qtyKg, item.count]);
+    });
+    rows.push(['TOTAL', '', shift.bonanPcs, shift.bonanKg, '']);
+    rows.push([]);
+  });
+
+  const xml = `<?xml version="1.0"?>
+    <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+      xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+      ${makeExcelWorksheet('Laporan Shift', rows)}
+    </Workbook>`;
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  downloadBlob(blob, `BSWP_Laporan_Shift_${dashStartDate}_sd_${dashEndDate}.xls`);
 }
 
 function escapeExcelCell(value) {
@@ -3646,6 +3940,15 @@ async function rejectStockAdjustment(item) {
         <small>Lihat stok live dari HP, laptop, dan TV monitor</small>
       </button>
 
+      <button className="menu-card report-menu-card" onClick={() => {
+        setPage('dashboard');
+        setDashTab('laporan');
+      }}>
+        <b>📄</b>
+        <span>Laporan Shift</span>
+        <small>Ringkasan 1 halaman untuk screenshot WA + export Excel</small>
+      </button>
+
       <button className="menu-card input-menu-card" onClick={openFormMenu}>
         <b>🔐</b>
         <span>Form Penginputan</span>
@@ -4575,6 +4878,9 @@ async function rejectStockAdjustment(item) {
         <button type="button" className="chip-btn gold" onClick={handleExportDashboardPdf}>
           Export PDF
         </button>
+        <button type="button" className="chip-btn emerald" onClick={() => setDashTab('laporan')}>
+          Laporan Shift
+        </button>
       </div>
     </div>
 
@@ -4586,6 +4892,7 @@ async function rejectStockAdjustment(item) {
         ['top', 'Top Waste'],
         ['hasil', 'Analisa Giling'],
         ['aging', 'Lifetime / Slow Moving'],
+        ['laporan', 'Laporan Shift'],
         ['alert', `Alert Center (${dashboardAllAlerts.length})`],
       ].map(([key, label]) => (
         <button
@@ -5379,6 +5686,192 @@ async function rejectStockAdjustment(item) {
           </div>
         </section>
       </div>
+    )}
+
+    {dashTab === 'laporan' && (
+      <section className="dashboard-section lux-section shift-report-section">
+        <div className="dashboard-section-head print-hide">
+          <div>
+            <h3>Laporan Shift 1 Halaman</h3>
+            <span>Periode {dashStartDate === dashEndDate ? dashStartDate : `${dashStartDate} s/d ${dashEndDate}`} • cocok untuk screenshot/PDF WA</span>
+          </div>
+          <div className="report-action-row">
+            <button type="button" className="mini-btn" onClick={handlePrintShiftReport}>
+              PDF / Print
+            </button>
+            <button type="button" className="mini-btn gold" onClick={handleExportShiftReportExcel}>
+              Download Excel
+            </button>
+          </div>
+        </div>
+
+        <div className="shift-report-sheet">
+          <div className="shift-report-title">
+            <div>
+              <span>BSWP SHIFT REPORT</span>
+              <h3>Laporan Waste, Giling, dan Bonan</h3>
+              <small>{dashStartDate === dashEndDate ? dashStartDate : `${dashStartDate} s/d ${dashEndDate}`} • dibuat {formatDate(clock)} {formatTime(clock)}</small>
+            </div>
+            <div className="shift-report-badges">
+              <b>{getShiftByDate(clock)}</b>
+              <span>Live</span>
+            </div>
+          </div>
+
+          <div className="shift-report-kpi-grid">
+            <div>
+              <span>Waste Masuk</span>
+              <b>{formatNumber(dashboardShiftReport.totals.wasteKg)} KG</b>
+              <small>{dashboardShiftReport.totals.wasteCount} input</small>
+            </div>
+            <div>
+              <span>Hasil Bubuk</span>
+              <b>{formatNumber(dashboardShiftReport.totals.hasilBubukKg)} KG</b>
+              <small>Waste proses {formatNumber(dashboardShiftReport.totals.hasilWasteKg)} KG</small>
+            </div>
+            <div>
+              <span>Masih Progress</span>
+              <b>{formatNumber(dashboardShiftReport.totals.progressKg)} KG</b>
+              <small>Belum jadi bubuk</small>
+            </div>
+            <div>
+              <span>Bonan</span>
+              <b>{formatNumber(dashboardShiftReport.totals.bonanKg)} KG</b>
+              <small>{formatNumber(dashboardShiftReport.totals.bonanPcs)} PCS</small>
+            </div>
+          </div>
+
+          <div className="shift-report-grid">
+            <div className="shift-report-block">
+              <h4>Waste Masuk per Shift</h4>
+              {dashboardShiftReport.shifts.map((shift) => (
+                <div className="shift-mini-table" key={`waste-${shift.shift}`}>
+                  <div className="shift-mini-head">
+                    <b>{shift.shift}</b>
+                    <span>{formatNumber(shift.wasteTotalKg)} KG</span>
+                  </div>
+
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Area</th>
+                        <th>Waste</th>
+                        <th>KG</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shift.wasteRows.slice(0, 12).map((item) => (
+                        <tr key={`${shift.shift}-${item.bucketKey}-${item.kode}-${item.nama}`}>
+                          <td>{item.bucketLabel}</td>
+                          <td>{item.nama}</td>
+                          <td>{formatNumber(item.qtyKg)}</td>
+                        </tr>
+                      ))}
+                      {shift.wasteRows.length === 0 && (
+                        <tr><td colSpan="3">Belum ada data</td></tr>
+                      )}
+                      {shift.wasteRows.length > 12 && (
+                        <tr><td colSpan="3">+{shift.wasteRows.length - 12} item lain di Excel</td></tr>
+                      )}
+                      <tr className="total-row">
+                        <td colSpan="2">TOTAL</td>
+                        <td>{formatNumber(shift.wasteTotalKg)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+
+            <div className="shift-report-block">
+              <h4>Hasil Giling per Shift</h4>
+              {dashboardShiftReport.shifts.map((shift) => (
+                <div className="shift-mini-table" key={`hasil-${shift.shift}`}>
+                  <div className="shift-mini-head">
+                    <b>{shift.shift}</b>
+                    <span>{formatNumber(shift.hasilBubukKg)} KG bubuk</span>
+                  </div>
+
+                  <div className="hasil-summary-row">
+                    <div><span>Waste Masuk</span><b>{formatNumber(shift.hasilWasteKg)} KG</b></div>
+                    <div><span>Hasil Bubuk</span><b>{formatNumber(shift.hasilBubukKg)} KG</b></div>
+                    <div><span>Progress</span><b>{formatNumber(shift.progressKg)} KG</b></div>
+                  </div>
+
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Bubuk</th>
+                        <th>Waste</th>
+                        <th>Hasil</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shift.hasilRows.slice(0, 8).map((item) => (
+                        <tr key={`${shift.shift}-${item.kode}-${item.nama}`}>
+                          <td>{item.nama}</td>
+                          <td>{formatNumber(item.wasteKg)}</td>
+                          <td>{formatNumber(item.bubukKg)}</td>
+                        </tr>
+                      ))}
+                      {shift.hasilRows.length === 0 && (
+                        <tr><td colSpan="3">Belum ada hasil giling</td></tr>
+                      )}
+                      <tr className="total-row">
+                        <td>TOTAL</td>
+                        <td>{formatNumber(shift.hasilWasteKg)}</td>
+                        <td>{formatNumber(shift.hasilBubukKg)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+
+            <div className="shift-report-block">
+              <h4>Bonan per Shift</h4>
+              {dashboardShiftReport.shifts.map((shift) => (
+                <div className="shift-mini-table" key={`bonan-${shift.shift}`}>
+                  <div className="shift-mini-head">
+                    <b>{shift.shift}</b>
+                    <span>{formatNumber(shift.bonanPcs)} PCS • {formatNumber(shift.bonanKg)} KG</span>
+                  </div>
+
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Bubuk</th>
+                        <th>PCS</th>
+                        <th>KG</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shift.bonanRows.slice(0, 12).map((item) => (
+                        <tr key={`${shift.shift}-${item.kode}-${item.nama}`}>
+                          <td>{item.nama}</td>
+                          <td>{formatNumber(item.qtyPcs)}</td>
+                          <td>{formatNumber(item.qtyKg)}</td>
+                        </tr>
+                      ))}
+                      {shift.bonanRows.length === 0 && (
+                        <tr><td colSpan="3">Belum ada bonan</td></tr>
+                      )}
+                      {shift.bonanRows.length > 12 && (
+                        <tr><td colSpan="3">+{shift.bonanRows.length - 12} item lain di Excel</td></tr>
+                      )}
+                      <tr className="total-row">
+                        <td>TOTAL</td>
+                        <td>{formatNumber(shift.bonanPcs)}</td>
+                        <td>{formatNumber(shift.bonanKg)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
     )}
 
     {dashTab === 'alert' && (
