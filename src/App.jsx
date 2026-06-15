@@ -18,7 +18,7 @@ import './App.css';
 
 const APP_NAME = 'BSWP Level Up';
 const APP_PIN = '2222';
-const OPNAME_PIN = '8888';
+const OPNAME_PIN = '9999';
 const MASTER_ADMIN_PIN = '14045';
 
 const AREA_OPTIONS = ['PRODUKSI', 'PACKING'];
@@ -664,6 +664,8 @@ const [wasteRows, setWasteRows] = useState([createWasteRow()]);
   const [dashboardPengiriman, setDashboardPengiriman] = useState([]);
   const [loadingDashboardAnalytics, setLoadingDashboardAnalytics] = useState(false);
   const [sourceDetail, setSourceDetail] = useState(null);
+  const [wasteGudangDetail, setWasteGudangDetail] = useState(null);
+  const [livePenerimaanDetail, setLivePenerimaanDetail] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -1132,6 +1134,8 @@ useEffect(() => {
         .gte('tanggal', safeStart)
         .lte('tanggal', safeEnd)
         .order('tanggal', { ascending: true })
+        .order('jam_input', { ascending: true })
+        .order('id', { ascending: true })
         .limit(5000),
 
       supabase
@@ -2186,6 +2190,80 @@ const dashboardTopWasteCurrent = useMemo(
   [dashboardFiltered.wasteGudang]
 );
 
+const dashboardWasteGudangByJenis = useMemo(() => {
+  const map = new Map();
+
+  dashboardFiltered.wasteGudang.forEach((item) => {
+    const kode = item.kode_waste || '-';
+    const nama = item.nama_waste || '-';
+    const tipe = item.tipe_waste || '-';
+    const key = `${kode}||${nama}||${tipe}`;
+    const old = map.get(key) || {
+      key,
+      kode,
+      nama,
+      tipe,
+      qty: 0,
+      count: 0,
+      plantSet: new Set(),
+      lineSet: new Set(),
+      details: [],
+    };
+
+    old.qty += Number(item.sisa_waste_gudang || 0);
+    old.count += 1;
+    old.plantSet.add(item.plant_asal || item.plant || '-');
+    old.lineSet.add(item.line || '-');
+    old.details.push(item);
+    map.set(key, old);
+  });
+
+  return [...map.values()]
+    .map((item) => ({
+      ...item,
+      plants: [...item.plantSet].filter(Boolean).join(', '),
+      lines: [...item.lineSet].filter(Boolean).join(', '),
+      details: item.details.sort((a, b) => {
+        const aa = `${a.tanggal || ''} ${a.jam_input || ''} ${a.created_at || ''} ${a.id_waste_masuk || ''}`;
+        const bb = `${b.tanggal || ''} ${b.jam_input || ''} ${b.created_at || ''} ${b.id_waste_masuk || ''}`;
+        return aa.localeCompare(bb);
+      }),
+    }))
+    .sort((a, b) => b.qty - a.qty);
+}, [dashboardFiltered.wasteGudang]);
+
+const dashboardLivePenerimaanByShift = useMemo(() => {
+  const base = ['SHIFT 1', 'SHIFT 2', 'SHIFT 3'].map((shift) => ({
+    shift,
+    qty: 0,
+    count: 0,
+    details: [],
+  }));
+
+  const map = new Map(base.map((item) => [item.shift, item]));
+
+  [...dashboardFiltered.wasteMasuk]
+    .sort((a, b) => {
+      const aa = `${a.tanggal || ''} ${a.jam_input || ''} ${a.created_at || ''} ${a.id || ''}`;
+      const bb = `${b.tanggal || ''} ${b.jam_input || ''} ${b.created_at || ''} ${b.id || ''}`;
+      return aa.localeCompare(bb);
+    })
+    .forEach((item) => {
+      const shift = String(item.shift || '-').toUpperCase();
+      const key = shift.includes('1') ? 'SHIFT 1' : shift.includes('2') ? 'SHIFT 2' : shift.includes('3') ? 'SHIFT 3' : shift;
+      const old = map.get(key) || { shift: key, qty: 0, count: 0, details: [] };
+      old.qty += Number(item.qty_masuk || 0);
+      old.count += 1;
+      old.details.push(item);
+      map.set(key, old);
+    });
+
+  return [...map.values()].sort((a, b) => {
+    const order = { 'SHIFT 1': 1, 'SHIFT 2': 2, 'SHIFT 3': 3 };
+    return (order[a.shift] || 99) - (order[b.shift] || 99);
+  });
+}, [dashboardFiltered.wasteMasuk]);
+
 const dashboardTopKirim = useMemo(
   () => buildTopList(dashboardFiltered.pengiriman, 'nama_bubuk', 'qty_kirim', 10),
   [dashboardFiltered.pengiriman]
@@ -3146,7 +3224,7 @@ async function rejectStockAdjustment(item) {
             </button>
           </div>
 
-          <small className="lock-hint">PIN khusus: 2x4=4x</small>
+          <small className="lock-hint">PIN khusus: 9999</small>
 
           {notif && (
             <div className={`notif ${notif.type} lock-notif`}>
@@ -3211,7 +3289,7 @@ async function rejectStockAdjustment(item) {
             </button>
           </div>
 
-          <small className="lock-hint">Pastikan PIN benar!!</small>
+          <small className="lock-hint">Pass: 2222</small>
 
           {notif && (
             <div className={`notif ${notif.type} lock-notif`}>
@@ -3358,6 +3436,83 @@ async function rejectStockAdjustment(item) {
 )}
 
 
+{wasteGudangDetail && (
+  <div className="drawer-backdrop" onClick={() => setWasteGudangDetail(null)}>
+    <div className="drawer source-detail-drawer" onClick={(e) => e.stopPropagation()}>
+      <div className="drawer-header">
+        <div>
+          <h3>Detail Waste Gudang per Jenis</h3>
+          <p>{wasteGudangDetail.nama} • {wasteGudangDetail.count} ID aktif</p>
+        </div>
+        <button type="button" className="icon-btn" onClick={() => setWasteGudangDetail(null)}>
+          ×
+        </button>
+      </div>
+
+      <div className="source-detail-summary">
+        <div>
+          <span>Total Sisa Gudang</span>
+          <b>{formatNumber(wasteGudangDetail.qty)} KG</b>
+        </div>
+        <div>
+          <span>Jumlah ID</span>
+          <b>{wasteGudangDetail.count}</b>
+        </div>
+      </div>
+
+      <div className="history-list">
+        {wasteGudangDetail.details.slice(0, 150).map((item, index) => (
+          <div className="history-card" key={`${item.id_waste_masuk || index}-${index}`}>
+            <b>{item.id_waste_masuk || '-'}</b>
+            <span>{formatNumber(item.sisa_waste_gudang)} KG • {item.nama_waste || '-'}</span>
+            <small>Plant {item.plant_asal || '-'} • Area {item.area_asal || '-'} • Line {item.line || '-'}</small>
+            <small>{item.tanggal || '-'} • {item.jam_input || '-'} • {item.tipe_waste || '-'}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
+{livePenerimaanDetail && (
+  <div className="drawer-backdrop" onClick={() => setLivePenerimaanDetail(null)}>
+    <div className="drawer source-detail-drawer" onClick={(e) => e.stopPropagation()}>
+      <div className="drawer-header">
+        <div>
+          <h3>Detail Live Penerimaan</h3>
+          <p>{livePenerimaanDetail.shift} • urutan scan/input waste masuk</p>
+        </div>
+        <button type="button" className="icon-btn" onClick={() => setLivePenerimaanDetail(null)}>
+          ×
+        </button>
+      </div>
+
+      <div className="source-detail-summary">
+        <div>
+          <span>Total Penerimaan</span>
+          <b>{formatNumber(livePenerimaanDetail.qty)} KG</b>
+        </div>
+        <div>
+          <span>Jumlah Input</span>
+          <b>{livePenerimaanDetail.count}</b>
+        </div>
+      </div>
+
+      <div className="history-list">
+        {livePenerimaanDetail.details.slice(0, 200).map((item, index) => (
+          <div className="history-card" key={`${item.id || item.id_waste_masuk || index}-${index}`}>
+            <b>{index + 1}. {item.nama_waste || '-'}</b>
+            <span>{formatNumber(item.qty_masuk)} KG • {item.tipe_waste || '-'}</span>
+            <small>{item.tanggal || '-'} • {item.jam_input || '-'} • ID {item.id_waste_masuk || '-'}</small>
+            <small>Plant {item.plant_asal || '-'} • Area {item.area_asal || '-'} • Line {item.line || '-'}</small>
+            <small>No PRO/Ket: {item.no_pro_keterangan || item.keterangan || '-'}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
 {sourceDetail && (
   <div className="drawer-backdrop" onClick={() => setSourceDetail(null)}>
     <div className="drawer source-detail-drawer" onClick={(e) => e.stopPropagation()}>
@@ -3440,13 +3595,13 @@ async function rejectStockAdjustment(item) {
       <button className="menu-card opname-menu-card" onClick={openStockOpname}>
         <b>📦</b>
         <span>Stock Opname</span>
-        <small>PIN khusus 9999 untuk cek stok bubuk, waste, dan waste kotor real time</small>
+        <small>MASUK untuk opname cek stok bubuk, waste, dan waste kotor real time</small>
       </button>
 
       <button className="menu-card master-menu-card" onClick={openMasterDataAdmin}>
         <b>🧬</b>
         <span>Master Data Admin</span>
-        <small>Area inti sistem. PIN 14045 + konfirmasi ijin UH/SH.</small>
+        <small>Area inti sistem. WAJIB konfirmasi ijin UH/SH.</small>
       </button>
     </div>
   </main>
@@ -4534,27 +4689,76 @@ async function rejectStockAdjustment(item) {
           </div>
         </section>
 
+        <section className="dashboard-section lux-section live-receiving-panel">
+          <div className="dashboard-section-head">
+            <h3>Live Penerimaan Waste</h3>
+            <span>Urutan penerimaan sesuai scan/input waste masuk</span>
+          </div>
+
+          <div className="live-shift-grid">
+            {dashboardLivePenerimaanByShift.map((shift) => (
+              <button
+                type="button"
+                className="live-shift-card"
+                key={shift.shift}
+                onClick={() => setLivePenerimaanDetail(shift)}
+              >
+                <div className="live-shift-head">
+                  <div>
+                    <b>{shift.shift}</b>
+                    <small>{shift.count} penerimaan</small>
+                  </div>
+                  <strong>{formatNumber(shift.qty)} KG</strong>
+                </div>
+
+                <div className="live-mini-list">
+                  {shift.details.slice(0, dashTvMode ? 3 : 5).map((item, index) => (
+                    <div className="live-mini-row" key={`${item.id || item.id_waste_masuk || index}-${index}`}>
+                      <span>{item.jam_input || '-'}</span>
+                      <b>{item.nama_waste || '-'}</b>
+                      <em>{formatNumber(item.qty_masuk)} KG</em>
+                    </div>
+                  ))}
+
+                  {shift.details.length === 0 && (
+                    <div className="empty-state compact">Belum ada penerimaan.</div>
+                  )}
+                </div>
+
+                {shift.details.length > (dashTvMode ? 3 : 5) && (
+                  <small className="click-hint">Klik lihat semua {shift.details.length} input</small>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <div className="dashboard-duo">
           <section className="dashboard-section lux-section">
             <div className="dashboard-section-head">
-              <h3>Waste Gudang</h3>
-              <span>{dashboardFiltered.wasteGudang.length} ID</span>
+              <h3>Waste Gudang per Jenis</h3>
+              <span>{dashboardWasteGudangByJenis.length} jenis • {dashboardFiltered.wasteGudang.length} ID</span>
             </div>
 
             <div className="dashboard-list">
-              {dashboardFiltered.wasteGudang.slice(0, dashTvMode ? 5 : 10).map((item) => (
-                <div className="dashboard-row luxe-row" key={item.id_waste_masuk}>
+              {dashboardWasteGudangByJenis.slice(0, dashTvMode ? 5 : 10).map((item) => (
+                <button
+                  type="button"
+                  className="dashboard-row luxe-row clickable-row"
+                  key={item.key}
+                  onClick={() => setWasteGudangDetail(item)}
+                >
                   <div>
-                    <b>{item.nama_waste}</b>
+                    <b>{item.nama}</b>
                     <small>
-                      {item.id_waste_masuk} • Plant {item.plant_asal || '-'} • Line {item.line || '-'}
+                      {item.count} ID aktif • Plant {item.plants || '-'} • Line {item.lines || '-'}
                     </small>
                   </div>
-                  <strong>{formatNumber(item.sisa_waste_gudang)} KG</strong>
-                </div>
+                  <strong>{formatNumber(item.qty)} KG</strong>
+                </button>
               ))}
 
-              {!loadingGudang && dashboardFiltered.wasteGudang.length === 0 && (
+              {!loadingGudang && dashboardWasteGudangByJenis.length === 0 && (
                 <div className="empty-state">Tidak ada stok waste gudang sesuai filter.</div>
               )}
             </div>
