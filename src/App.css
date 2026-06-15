@@ -4205,3 +4205,126 @@ select:disabled {
   }
 }
 
+/* ADDON STOCK OPNAME: ringkas per jenis, detail saat diklik */
+.opname-group-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.opname-group-card {
+  width: 100%;
+  min-height: 150px;
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  border-radius: 22px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.86), rgba(20, 83, 45, 0.42));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+  transition: transform 0.18s ease, border-color 0.18s ease, filter 0.18s ease;
+}
+
+.opname-group-card:hover,
+.opname-group-card.active {
+  transform: translateY(-2px);
+  border-color: rgba(34, 197, 94, 0.7);
+  filter: brightness(1.04);
+}
+
+.opname-group-card.purple {
+  border-color: rgba(168, 85, 247, 0.25);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.86), rgba(88, 28, 135, 0.42));
+}
+
+.opname-group-card.purple:hover,
+.opname-group-card.purple.active {
+  border-color: rgba(168, 85, 247, 0.72);
+}
+
+.opname-group-card.danger {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.86), rgba(127, 29, 29, 0.46));
+}
+
+.opname-group-card.danger:hover,
+.opname-group-card.danger.active {
+  border-color: rgba(239, 68, 68, 0.72);
+}
+
+.opname-group-card b,
+.opname-group-card strong {
+  display: block;
+}
+
+.opname-group-card b {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.opname-group-card strong {
+  font-size: 22px;
+}
+
+.opname-group-card small,
+.opname-group-card .click-hint {
+  display: block;
+  opacity: 0.74;
+  margin-top: 4px;
+}
+
+.opname-group-summary-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.opname-group-summary-card > div {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.opname-group-summary-card span,
+.opname-group-summary-card small {
+  display: block;
+  opacity: 0.72;
+}
+
+.opname-group-summary-card b {
+  display: block;
+  margin-top: 5px;
+  font-size: 18px;
+}
+
+.opname-detail-head {
+  align-items: center;
+}
+
+.opname-detail-list {
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.opname-detail-row {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+@media (max-width: 1000px) {
+  .opname-group-grid,
+  .opname-group-summary-card {
+    grid-template-columns: 1fr;
+  }
+
+  .opname-group-card {
+    min-height: auto;
+  }
+}
