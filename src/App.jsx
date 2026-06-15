@@ -2904,6 +2904,72 @@ function handleExportShiftReportExcel() {
   downloadBlob(blob, `BSWP_Laporan_Shift_${dashStartDate}_sd_${dashEndDate}.xls`);
 }
 
+
+function loadHtml2Canvas() {
+  return new Promise((resolve, reject) => {
+    if (window.html2canvas) {
+      resolve(window.html2canvas);
+      return;
+    }
+
+    const existingScript = document.querySelector('script[data-bswp-html2canvas="true"]');
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(window.html2canvas), { once: true });
+      existingScript.addEventListener('error', () => reject(new Error('Gagal memuat html2canvas')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    script.async = true;
+    script.defer = true;
+    script.dataset.bswpHtml2canvas = 'true';
+    script.onload = () => resolve(window.html2canvas);
+    script.onerror = () => reject(new Error('Gagal memuat library download gambar. Cek internet lalu coba lagi.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function handleExportShiftReportJpg() {
+  const sheet = document.querySelector('.shift-report-sheet');
+  if (!sheet) {
+    alert('Buka tab Laporan Shift dulu.');
+    return;
+  }
+
+  try {
+    const html2canvas = await loadHtml2Canvas();
+    sheet.classList.add('shift-report-capture-mode');
+
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 120)));
+
+    const canvas = await html2canvas(sheet, {
+      backgroundColor: '#080c1c',
+      scale: Math.min(3, Math.max(2, window.devicePixelRatio || 2)),
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      scrollX: 0,
+      scrollY: -window.scrollY,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+    });
+
+    const imageUrl = canvas.toDataURL('image/jpeg', 0.96);
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `BSWP_Laporan_Shift_${dashStartDate}_sd_${dashEndDate}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (error) {
+    console.error(error);
+    alert('Download JPG gagal. Refresh halaman lalu coba lagi.');
+  } finally {
+    sheet.classList.remove('shift-report-capture-mode');
+  }
+}
+
 function escapeExcelCell(value) {
   const raw = value === null || value === undefined ? '' : String(value);
   return raw
@@ -5696,6 +5762,9 @@ async function rejectStockAdjustment(item) {
             <span>Periode {dashStartDate === dashEndDate ? dashStartDate : `${dashStartDate} s/d ${dashEndDate}`} • cocok untuk screenshot/PDF WA</span>
           </div>
           <div className="report-action-row">
+            <button type="button" className="mini-btn cyan" onClick={handleExportShiftReportJpg}>
+              Download JPG
+            </button>
             <button type="button" className="mini-btn" onClick={handlePrintShiftReport}>
               PDF / Print
             </button>
