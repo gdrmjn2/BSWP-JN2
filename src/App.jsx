@@ -18,7 +18,7 @@ import './App.css';
 
 const APP_NAME = 'BSWP Level Up';
 const APP_PIN = '2222';
-const OPNAME_PIN = '9999';
+const OPNAME_PIN = '8888';
 const MASTER_ADMIN_PIN = '14045';
 
 const AREA_OPTIONS = ['PRODUKSI', 'PACKING'];
@@ -563,6 +563,7 @@ const [loadingHistoryWaste, setLoadingHistoryWaste] = useState(false);
   const [opnameSearch, setOpnameSearch] = useState('');
   const [opnameTab, setOpnameTab] = useState('stok');
   const [selectedOpnameItem, setSelectedOpnameItem] = useState(null);
+  const [selectedOpnameGroup, setSelectedOpnameGroup] = useState(null);
   const [opnameActualKg, setOpnameActualKg] = useState('');
   const [opnameActualPcs, setOpnameActualPcs] = useState('');
   const [opnameNote, setOpnameNote] = useState('');
@@ -1129,13 +1130,13 @@ useEffect(() => {
       supabase
         .from('waste_masuk')
         .select(
-          'id,id_waste_masuk,group_id,tanggal,jam_input,shift,plant_asal,area_asal,line,kode_waste,nama_waste,tipe_waste,qty_masuk,kategori_waste,no_pro_keterangan,keterangan'
+          'id,id_waste_masuk,group_id,tanggal,jam_input,created_at,shift,plant_asal,area_asal,line,kode_waste,nama_waste,tipe_waste,qty_masuk,kategori_waste,no_pro_keterangan,keterangan'
         )
         .gte('tanggal', safeStart)
         .lte('tanggal', safeEnd)
         .order('tanggal', { ascending: true })
         .order('jam_input', { ascending: true })
-        .order('id', { ascending: true })
+        .order('created_at', { ascending: true })
         .limit(5000),
 
       supabase
@@ -2807,6 +2808,7 @@ const stockOpnameData = useMemo(() => {
       nama: item.nama_waste,
       asal: `${item.plant_asal || '-'} • ${item.area_asal || '-'} • Line ${item.line || '-'}`,
       qtyKg: Number(item.sisa_waste_gudang || 0),
+      qtyPcs: 0,
       keterangan: item.keterangan || item.no_pro_keterangan || '',
       raw: item,
     })),
@@ -2818,6 +2820,7 @@ const stockOpnameData = useMemo(() => {
       nama: item.nama_waste,
       asal: `${item.plant_asal || '-'} • ${item.area_asal || '-'} • Line ${item.line || '-'}`,
       qtyKg: Number(item.sisa_proses_giling || 0),
+      qtyPcs: 0,
       keterangan: `Bubuk: ${item.nama_bubuk || '-'}${item.keterangan ? ` • ${item.keterangan}` : ''}`,
       raw: item,
     })),
@@ -2844,6 +2847,7 @@ const stockOpnameData = useMemo(() => {
     nama: item.nama_item,
     asal: item.sumber_kotor || '-',
     qtyKg: Number(item.total_kg || 0),
+    qtyPcs: 0,
     keterangan: `${item.jumlah_transaksi || 0} transaksi`,
     raw: item,
   }));
@@ -2851,25 +2855,71 @@ const stockOpnameData = useMemo(() => {
   function match(row) {
     if (opnameView !== 'ALL' && row.type !== opnameView) return false;
     if (!keyword) return true;
-    return toKeyText(`${row.kode} ${row.nama} ${row.asal} ${row.id} ${row.keterangan}`).includes(keyword);
+    return toKeyText(`${row.kode} ${row.nama} ${row.asal} ${row.id} ${row.source} ${row.keterangan}`).includes(keyword);
+  }
+
+  function buildGroups(rows) {
+    const map = new Map();
+
+    rows.forEach((row) => {
+      const key = `${row.type}|${row.kode || '-'}|${row.nama || '-'}`;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          groupKey: key,
+          type: row.type,
+          kode: row.kode,
+          nama: row.nama,
+          qtyKg: 0,
+          qtyPcs: 0,
+          rowCount: 0,
+          sourceSet: new Set(),
+          asalSet: new Set(),
+          rows: [],
+        });
+      }
+
+      const group = map.get(key);
+      group.qtyKg += Number(row.qtyKg || 0);
+      group.qtyPcs += Number(row.qtyPcs || 0);
+      group.rowCount += 1;
+      group.sourceSet.add(row.source || '-');
+      group.asalSet.add(row.asal || '-');
+      group.rows.push(row);
+    });
+
+    return Array.from(map.values())
+      .map((group) => ({
+        ...group,
+        sourceLabel: Array.from(group.sourceSet).join(' + '),
+        asalLabel: Array.from(group.asalSet).slice(0, 2).join(' • '),
+      }))
+      .sort((a, b) => b.qtyKg - a.qtyKg || String(a.nama || '').localeCompare(String(b.nama || '')));
   }
 
   const filteredWaste = wasteRows.filter(match);
   const filteredBubuk = bubukRows.filter(match);
   const filteredKotor = kotorRows.filter(match);
 
+  const wasteGroups = buildGroups(filteredWaste);
+  const bubukGroups = buildGroups(filteredBubuk);
+  const kotorGroups = buildGroups(filteredKotor);
+
   return {
     wasteRows: filteredWaste,
     bubukRows: filteredBubuk,
     kotorRows: filteredKotor,
+    wasteGroups,
+    bubukGroups,
+    kotorGroups,
     totalWasteKg: filteredWaste.reduce((sum, item) => sum + item.qtyKg, 0),
     totalBubukKg: filteredBubuk.reduce((sum, item) => sum + item.qtyKg, 0),
     totalBubukPcs: filteredBubuk.reduce((sum, item) => sum + Number(item.qtyPcs || 0), 0),
     totalKotorKg: filteredKotor.reduce((sum, item) => sum + item.qtyKg, 0),
     totalItem: filteredWaste.length + filteredBubuk.length + filteredKotor.length,
+    totalJenis: wasteGroups.length + bubukGroups.length + kotorGroups.length,
   };
 }, [wasteGudang, prosesGiling, stokBubuk, rincianKotor, opnameSearch, opnameView]);
-
 
 function getOpnameStockType(item) {
   if (!item) return 'WASTE_GUDANG';
@@ -2888,6 +2938,15 @@ function getOpnameTypeLabel(type) {
   };
 
   return map[type] || type || '-';
+}
+
+function selectOpnameGroup(group) {
+  setSelectedOpnameGroup(group);
+  setNotif(null);
+}
+
+function closeOpnameGroup() {
+  setSelectedOpnameGroup(null);
 }
 
 function getOpnameCandidateRows() {
@@ -2916,6 +2975,7 @@ function selectOpnameItem(item) {
     ...item,
     stockType,
   });
+  setSelectedOpnameGroup(null);
 
   setOpnameActualKg(item?.qtyKg ? String(item.qtyKg) : '');
   setOpnameActualPcs(item?.qtyPcs ? String(item.qtyPcs) : '');
@@ -2966,7 +3026,7 @@ async function submitStockOpname(e) {
     p_stok_aktual_kg: actualKg,
     p_stok_aktual_pcs: actualPcs,
     p_note: opnameNote || '',
-    p_created_by: 'OPNAME-9999',
+    p_created_by: 'OPNAME-8888',
   });
 
   setSubmitting(false);
@@ -3016,7 +3076,7 @@ async function approveStockAdjustment(item) {
 
   const { data, error } = await supabase.rpc('approve_stock_opname_adjustment', {
     p_opname_id: item.id,
-    p_approved_by: 'OPNAME-9999',
+    p_approved_by: 'OPNAME-8888',
   });
 
   setSubmitting(false);
@@ -3045,7 +3105,7 @@ async function rejectStockAdjustment(item) {
 
   const { data, error } = await supabase.rpc('reject_stock_opname_adjustment', {
     p_opname_id: item.id,
-    p_rejected_by: 'OPNAME-9999',
+    p_rejected_by: 'OPNAME-8888',
     p_reason: reason || '',
   });
 
@@ -3224,7 +3284,7 @@ async function rejectStockAdjustment(item) {
             </button>
           </div>
 
-          <small className="lock-hint">PIN khusus: 9999</small>
+          
 
           {notif && (
             <div className={`notif ${notif.type} lock-notif`}>
@@ -3289,7 +3349,7 @@ async function rejectStockAdjustment(item) {
             </button>
           </div>
 
-          <small className="lock-hint">Pass: 2222</small>
+          
 
           {notif && (
             <div className={`notif ${notif.type} lock-notif`}>
@@ -3595,13 +3655,13 @@ async function rejectStockAdjustment(item) {
       <button className="menu-card opname-menu-card" onClick={openStockOpname}>
         <b>📦</b>
         <span>Stock Opname</span>
-        <small>MASUK untuk opname cek stok bubuk, waste, dan waste kotor real time</small>
+        <small>Cek stok bubuk, waste, dan waste kotor real time</small>
       </button>
 
       <button className="menu-card master-menu-card" onClick={openMasterDataAdmin}>
         <b>🧬</b>
         <span>Master Data Admin</span>
-        <small>Area inti sistem. WAJIB konfirmasi ijin UH/SH.</small>
+        <small>Area inti sistem. PIN 14045 + konfirmasi ijin UH/SH.</small>
       </button>
     </div>
   </main>
@@ -3985,8 +4045,8 @@ async function rejectStockAdjustment(item) {
 
       <div className="hero-stats">
         <div className="stat-box">
-          <span>Total Item</span>
-          <b>{stockOpnameData.totalItem}</b>
+          <span>Total Jenis</span>
+          <b>{stockOpnameData.totalJenis}</b>
         </div>
         <div className="stat-box">
           <span>Pending</span>
@@ -4023,17 +4083,17 @@ async function rejectStockAdjustment(item) {
       <div className="dash-card green">
         <span>Waste + Proses</span>
         <b>{formatNumber(stockOpnameData.totalWasteKg)} KG</b>
-        <small>{stockOpnameData.wasteRows.length} item perlu dicek</small>
+        <small>{stockOpnameData.wasteGroups.length} jenis • {stockOpnameData.wasteRows.length} rincian</small>
       </div>
       <div className="dash-card purple">
         <span>Bubuk Bersih</span>
         <b>{formatNumber(stockOpnameData.totalBubukKg)} KG</b>
-        <small>{formatNumber(stockOpnameData.totalBubukPcs)} PCS • {stockOpnameData.bubukRows.length} batch</small>
+        <small>{formatNumber(stockOpnameData.totalBubukPcs)} PCS • {stockOpnameData.bubukGroups.length} jenis • {stockOpnameData.bubukRows.length} batch</small>
       </div>
       <div className="dash-card danger">
         <span>Waste Kotor</span>
         <b>{formatNumber(stockOpnameData.totalKotorKg || stokKotor?.sisa_waste_kotor)} KG</b>
-        <small>{stockOpnameData.kotorRows.length} jenis rincian kotor</small>
+        <small>{stockOpnameData.kotorGroups.length} jenis • {stockOpnameData.kotorRows.length} rincian</small>
       </div>
     </div>
 
@@ -4085,30 +4145,86 @@ async function rejectStockAdjustment(item) {
 
     {opnameTab === 'stok' && (
       <>
-        {(opnameView === 'ALL' || opnameView === 'WASTE') && (
-          <section className="dashboard-section opname-section">
-            <div className="dashboard-section-head">
-              <h3>Data Stok Opname Waste</h3>
-              <span>{stockOpnameData.wasteRows.length} item • {formatNumber(stockOpnameData.totalWasteKg)} KG</span>
+        {selectedOpnameGroup && (
+          <section className="dashboard-section opname-section opname-detail-section">
+            <div className="dashboard-section-head opname-detail-head">
+              <div>
+                <h3>Rincian {selectedOpnameGroup.nama || '-'}</h3>
+                <span>
+                  {selectedOpnameGroup.kode || '-'} • {selectedOpnameGroup.rowCount} rincian • {formatNumber(selectedOpnameGroup.qtyKg)} KG
+                  {selectedOpnameGroup.qtyPcs ? ` / ${formatNumber(selectedOpnameGroup.qtyPcs)} PCS` : ''}
+                </span>
+              </div>
+              <button type="button" className="ghost-btn wide" onClick={closeOpnameGroup}>
+                Tutup Rincian
+              </button>
             </div>
-            <div className="opname-card-list">
-              {stockOpnameData.wasteRows.map((item) => (
-                <div className="opname-item-card opname-action-card" key={`${item.source}-${item.id}`}>
+
+            <div className="opname-group-summary-card">
+              <div>
+                <span>Total Sistem</span>
+                <b>{formatNumber(selectedOpnameGroup.qtyKg)} KG</b>
+                {selectedOpnameGroup.qtyPcs ? <small>{formatNumber(selectedOpnameGroup.qtyPcs)} PCS</small> : null}
+              </div>
+              <div>
+                <span>Sumber</span>
+                <b>{selectedOpnameGroup.sourceLabel || '-'}</b>
+                <small>{selectedOpnameGroup.asalLabel || '-'}</small>
+              </div>
+              <div>
+                <span>Aksi</span>
+                <b>Pilih rincian</b>
+                <small>Klik Opname pada ID/batch yang akan dicek fisik.</small>
+              </div>
+            </div>
+
+            <div className="opname-card-list opname-detail-list">
+              {selectedOpnameGroup.rows.map((item) => (
+                <div className="opname-item-card opname-action-card opname-detail-row" key={`${item.source}-${item.id}`}>
                   <div>
                     <b>{item.nama || '-'}</b>
-                    <small>{item.kode || '-'} • {item.source}</small>
+                    <small>{item.kode || '-'} • {item.source} • Ref {item.id || '-'}</small>
                     <small>{item.asal}</small>
                     {item.keterangan && <small>{item.keterangan}</small>}
                   </div>
                   <div className="opname-card-right">
-                    <strong>{formatNumber(item.qtyKg)} KG</strong>
+                    <strong>
+                      {formatNumber(item.qtyKg)} KG{item.qtyPcs ? ` / ${formatNumber(item.qtyPcs)} PCS` : ''}
+                    </strong>
                     <button type="button" className="mini-btn" onClick={() => selectOpnameItem(item)}>
                       Opname
                     </button>
                   </div>
                 </div>
               ))}
-              {stockOpnameData.wasteRows.length === 0 && <div className="empty-state">Tidak ada stok waste sesuai filter.</div>}
+            </div>
+          </section>
+        )}
+
+        {(opnameView === 'ALL' || opnameView === 'WASTE') && (
+          <section className="dashboard-section opname-section">
+            <div className="dashboard-section-head">
+              <h3>Data Stok Opname Waste</h3>
+              <span>{stockOpnameData.wasteGroups.length} jenis • {stockOpnameData.wasteRows.length} rincian • {formatNumber(stockOpnameData.totalWasteKg)} KG</span>
+            </div>
+            <div className="opname-group-grid">
+              {stockOpnameData.wasteGroups.map((group) => (
+                <button
+                  type="button"
+                  className={`opname-group-card ${selectedOpnameGroup?.groupKey === group.groupKey ? 'active' : ''}`}
+                  key={group.groupKey}
+                  onClick={() => selectOpnameGroup(group)}
+                >
+                  <div>
+                    <b>{group.nama || '-'}</b>
+                    <small>{group.kode || '-'} • {group.sourceLabel}</small>
+                    <small>{group.rowCount} rincian stok</small>
+                  </div>
+                  <strong>{formatNumber(group.qtyKg)} KG</strong>
+                  <span className="click-hint">Klik untuk rincian & opname</span>
+                </button>
+              ))}
+              {stockOpnameData.wasteGroups.length === 0 && <div className="empty-state">Tidak ada stok waste sesuai filter.</div>}
             </div>
           </section>
         )}
@@ -4117,26 +4233,26 @@ async function rejectStockAdjustment(item) {
           <section className="dashboard-section opname-section">
             <div className="dashboard-section-head">
               <h3>Data Stok Opname Bubuk</h3>
-              <span>{stockOpnameData.bubukRows.length} batch • {formatNumber(stockOpnameData.totalBubukKg)} KG</span>
+              <span>{stockOpnameData.bubukGroups.length} jenis • {stockOpnameData.bubukRows.length} batch • {formatNumber(stockOpnameData.totalBubukKg)} KG</span>
             </div>
-            <div className="opname-card-list">
-              {stockOpnameData.bubukRows.map((item) => (
-                <div className="opname-item-card opname-action-card" key={`${item.source}-${item.id}`}>
+            <div className="opname-group-grid">
+              {stockOpnameData.bubukGroups.map((group) => (
+                <button
+                  type="button"
+                  className={`opname-group-card purple ${selectedOpnameGroup?.groupKey === group.groupKey ? 'active' : ''}`}
+                  key={group.groupKey}
+                  onClick={() => selectOpnameGroup(group)}
+                >
                   <div>
-                    <b>{item.nama || '-'}</b>
-                    <small>{item.kode || '-'} • {item.id || '-'}</small>
-                    <small>{item.asal}</small>
-                    <small>{item.keterangan}</small>
+                    <b>{group.nama || '-'}</b>
+                    <small>{group.kode || '-'} • {group.sourceLabel}</small>
+                    <small>{group.rowCount} batch/rincian</small>
                   </div>
-                  <div className="opname-card-right">
-                    <strong>{formatNumber(item.qtyKg)} KG / {formatNumber(item.qtyPcs)} PCS</strong>
-                    <button type="button" className="mini-btn" onClick={() => selectOpnameItem(item)}>
-                      Opname
-                    </button>
-                  </div>
-                </div>
+                  <strong>{formatNumber(group.qtyKg)} KG / {formatNumber(group.qtyPcs)} PCS</strong>
+                  <span className="click-hint">Klik untuk batch & opname</span>
+                </button>
               ))}
-              {stockOpnameData.bubukRows.length === 0 && <div className="empty-state">Tidak ada stok bubuk sesuai filter.</div>}
+              {stockOpnameData.bubukGroups.length === 0 && <div className="empty-state">Tidak ada stok bubuk sesuai filter.</div>}
             </div>
           </section>
         )}
@@ -4145,25 +4261,26 @@ async function rejectStockAdjustment(item) {
           <section className="dashboard-section opname-section">
             <div className="dashboard-section-head">
               <h3>Data Waste Kotor</h3>
-              <span>Sisa sistem {formatNumber(stokKotor?.sisa_waste_kotor)} KG</span>
+              <span>{stockOpnameData.kotorGroups.length} jenis • sisa sistem {formatNumber(stokKotor?.sisa_waste_kotor)} KG</span>
             </div>
-            <div className="opname-card-list">
-              {stockOpnameData.kotorRows.map((item) => (
-                <div className="opname-item-card opname-action-card" key={`${item.source}-${item.id}`}>
+            <div className="opname-group-grid">
+              {stockOpnameData.kotorGroups.map((group) => (
+                <button
+                  type="button"
+                  className={`opname-group-card danger ${selectedOpnameGroup?.groupKey === group.groupKey ? 'active' : ''}`}
+                  key={group.groupKey}
+                  onClick={() => selectOpnameGroup(group)}
+                >
                   <div>
-                    <b>{item.nama || '-'}</b>
-                    <small>{item.source} • {item.asal}</small>
-                    <small>{item.keterangan}</small>
+                    <b>{group.nama || '-'}</b>
+                    <small>{group.kode || '-'} • {group.sourceLabel}</small>
+                    <small>{group.rowCount} rincian</small>
                   </div>
-                  <div className="opname-card-right">
-                    <strong>{formatNumber(item.qtyKg)} KG</strong>
-                    <button type="button" className="mini-btn" onClick={() => selectOpnameItem(item)}>
-                      Opname
-                    </button>
-                  </div>
-                </div>
+                  <strong>{formatNumber(group.qtyKg)} KG</strong>
+                  <span className="click-hint">Klik untuk rincian & opname</span>
+                </button>
               ))}
-              {stockOpnameData.kotorRows.length === 0 && <div className="empty-state">Rincian waste kotor belum ada / belum sesuai filter.</div>}
+              {stockOpnameData.kotorGroups.length === 0 && <div className="empty-state">Rincian waste kotor belum ada / belum sesuai filter.</div>}
             </div>
           </section>
         )}
