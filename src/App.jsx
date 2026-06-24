@@ -21,7 +21,7 @@ const APP_PIN = '2222';
 const OPNAME_PIN = '8888';
 const MASTER_ADMIN_PIN = '14045';
 
-const AREA_OPTIONS = ['PRODUKSI', 'PACKING'];
+const AREA_OPTIONS = ['PROSES', 'PACKING'];
 
 const LINE_OPTIONS = ['All line', '1', '2', '3', '4', '5', 'Lainnya'];
 
@@ -31,7 +31,7 @@ const KATEGORI_WASTE_OPTIONS = [
   'ADJUSMENT OR RECYCLE',
   'ADJUSMENT FOR SCRAPPING',
   'LAINNYA',
-];const TUJUAN_PRODUKSI_OPTIONS = ['1112', '1113', 'LAINNYA'];
+];const TUJUAN_PROSES_OPTIONS = ['1112', '1113', 'LAINNYA'];
 const PEMBELI_KOTOR_OPTIONS = [
   'HERI',
   'HARIMI',
@@ -69,10 +69,32 @@ const DASHBOARD_FLOW_OPTIONS = [
 ];
 
 const REPORT_SHIFT_ORDER = ['SHIFT 1', 'SHIFT 2', 'SHIFT 3'];
+const SHIFT_MANUAL_OPTIONS = ['SHIFT 1', 'SHIFT 2', 'SHIFT 3'];
+
+function displayAreaLabel(value) {
+  const area = normalizeReportArea(value);
+  if (area === 'PROSES') return 'Proses';
+  if (area === 'PACKING') return 'Packing';
+  return area || '-';
+}
+
+function areaClassName(value) {
+  const area = normalizeReportArea(value);
+  if (area === 'PROSES') return 'area-proses';
+  if (area === 'PACKING') return 'area-packing';
+  return '';
+}
+
+function isShiftVerificationValid(shiftValue, answerValue) {
+  const shift = normalizeReportShift(shiftValue);
+  const answer = String(answerValue || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  if (!SHIFT_MANUAL_OPTIONS.includes(shift)) return false;
+  return answer === 'YA' || answer === 'BENAR' || answer === `YA ${shift}` || answer === `BENAR ${shift}`;
+}
 
 const REPORT_SOURCE_BUCKETS = [
-  { key: 'PRODUKSI-1112', area: 'PRODUKSI', plant: '1112', label: 'Produksi 1112' },
-  { key: 'PRODUKSI-1113', area: 'PRODUKSI', plant: '1113', label: 'Produksi 1113' },
+  { key: 'PROSES-1112', area: 'PROSES', plant: '1112', label: 'Proses 1112' },
+  { key: 'PROSES-1113', area: 'PROSES', plant: '1113', label: 'Proses 1113' },
   { key: 'PACKING-1112', area: 'PACKING', plant: '1112', label: 'Packing 1112' },
   { key: 'PACKING-1113', area: 'PACKING', plant: '1113', label: 'Packing 1113' },
 ];
@@ -94,7 +116,7 @@ function getShiftRank(value) {
 function normalizeReportArea(value) {
   const text = String(value || '').toUpperCase().trim();
   if (text.includes('PACK')) return 'PACKING';
-  if (text.includes('PROD')) return 'PRODUKSI';
+  if (text.includes('PROD') || text.includes('PROS')) return 'PROSES';
   return text || '-';
 }
 
@@ -443,10 +465,10 @@ function HistoryDrawer({
       </small>
       <small>
         Tujuan:{' '}
-        {row.tujuan_produksi === 'LAINNYA'
+        {row.tujuan_proses === 'LAINNYA'
           ? row.tujuan_lainnya || 'LAINNYA'
-          : row.tujuan_produksi
-          ? `Produksi ${row.tujuan_produksi}`
+          : row.tujuan_proses
+          ? `Proses ${row.tujuan_proses}`
           : '-'}
       </small>
       {row.no_kendaraan && <small>Kendaraan/Pengambil: {row.no_kendaraan}</small>}
@@ -516,6 +538,7 @@ function createWasteRow() {
         : `${Date.now()}-${Math.random()}`,
     search: '',
     selectedWaste: null,
+    areaAsal: '',
     lineUtama: '',
     subLine: '1',
     qtyMasuk: '',
@@ -658,6 +681,8 @@ const [loadingHistoryWaste, setLoadingHistoryWaste] = useState(false);
 const [kategoriWaste, setKategoriWaste] = useState('');
 const [noProKeterangan, setNoProKeterangan] = useState('');
 const [wasteRows, setWasteRows] = useState([createWasteRow()]);
+const [wasteShiftManual, setWasteShiftManual] = useState('');
+const [wasteShiftVerify, setWasteShiftVerify] = useState('');
 
   const [searchGiling, setSearchGiling] = useState('');
   const [selectedGiling, setSelectedGiling] = useState(null);
@@ -677,7 +702,7 @@ const [wasteRows, setWasteRows] = useState([createWasteRow()]);
   const [qtyKirim, setQtyKirim] = useState('');
   const [qtyPcsKirim, setQtyPcsKirim] = useState('');
   const [pcsKirimManualEdited, setPcsKirimManualEdited] = useState(false);
-  const [tujuanProduksi, setTujuanProduksi] = useState('');
+  const [tujuanProses, setTujuanProses] = useState('');
   const [tujuanLainnya, setTujuanLainnya] = useState('');
   const [noKendaraan, setNoKendaraan] = useState('');
   const [keteranganKirim, setKeteranganKirim] = useState('');
@@ -694,6 +719,9 @@ const [wasteRows, setWasteRows] = useState([createWasteRow()]);
   const [dashLine, setDashLine] = useState('ALL');
   const [dashWasteFlow, setDashWasteFlow] = useState('ALL');
   const [dashSearch, setDashSearch] = useState('');
+  const [reportShiftFilter, setReportShiftFilter] = useState('ALL');
+  const [reportAreaFilter, setReportAreaFilter] = useState('ALL');
+  const [reportPlantFilter, setReportPlantFilter] = useState('ALL');
   const [dashTab, setDashTab] = useState('overview');
   const [dashTvMode, setDashTvMode] = useState(false);
   const [dashAutoRefresh, setDashAutoRefresh] = useState(true);
@@ -1392,7 +1420,7 @@ useEffect(() => {
     setQtyKirim('');
     setQtyPcsKirim('');
     setPcsKirimManualEdited(false);
-    setTujuanProduksi('');
+    setTujuanProses('');
     setTujuanLainnya('');
     setNoKendaraan('');
     setKeteranganKirim('');
@@ -1639,6 +1667,8 @@ function getFilteredWasteByKeyword(keyword) {
 function resetWasteMasukBatchForm() {
   setKategoriWaste('');
   setNoProKeterangan('');
+  setWasteShiftManual('');
+  setWasteShiftVerify('');
   setAreaAsal('');
   setWasteRows([createWasteRow()]);
 }
@@ -1691,8 +1721,16 @@ async function openHistoryWasteMasuk() {
     return;
   }
 
-  if (!areaAsal) {
-    setNotif({ type: 'error', message: 'Area asal wajib dipilih.' });
+  if (!wasteShiftManual) {
+    setNotif({ type: 'error', message: 'Shift penerimaan wajib dipilih manual.' });
+    return;
+  }
+
+  if (!isShiftVerificationValid(wasteShiftManual, wasteShiftVerify)) {
+    setNotif({
+      type: 'error',
+      message: `Verifikasi shift belum benar. Ketik YA atau YA ${normalizeReportShift(wasteShiftManual)}.`,
+    });
     return;
   }
 
@@ -1702,7 +1740,8 @@ async function openHistoryWasteMasuk() {
       row.search ||
       row.qtyMasuk ||
       row.keterangan ||
-      row.lineUtama
+      row.lineUtama ||
+      row.areaAsal
   );
 
   if (validRows.length === 0) {
@@ -1719,6 +1758,11 @@ async function openHistoryWasteMasuk() {
 
     if (!row.selectedWaste) {
       setNotif({ type: 'error', message: `Waste baris ${nomor} belum dipilih.` });
+      return;
+    }
+
+    if (!row.areaAsal) {
+      setNotif({ type: 'error', message: `Area asal baris ${nomor} wajib dipilih.` });
       return;
     }
 
@@ -1753,6 +1797,7 @@ async function openHistoryWasteMasuk() {
 
     items.push({
       master_waste_id: row.selectedWaste.id,
+      area_asal: normalizeReportArea(row.areaAsal),
       line_utama: row.lineUtama,
       sub_line: row.lineUtama === 'All line' ? '' : row.subLine,
       qty_masuk: qty,
@@ -1762,10 +1807,10 @@ async function openHistoryWasteMasuk() {
 
   setSubmitting(true);
 
-  const { data, error } = await supabase.rpc('submit_waste_masuk_batch', {
+  const { data, error } = await supabase.rpc('submit_waste_masuk_batch_v2', {
     p_kategori_waste: kategoriWaste,
     p_no_pro_keterangan: noProKeterangan.trim(),
-    p_area_asal: areaAsal,
+    p_shift_manual: normalizeReportShift(wasteShiftManual),
     p_items: items,
     p_created_by: pinUser.trim(),
   });
@@ -1950,17 +1995,17 @@ async function openHistoryWasteMasuk() {
       return;
     }
 
-    if (!tujuanProduksi) {
-      setNotif({ type: 'error', message: 'Tujuan produksi wajib dipilih.' });
+    if (!tujuanProses) {
+      setNotif({ type: 'error', message: 'Tujuan proses wajib dipilih.' });
       return;
     }
 
-    if (tujuanProduksi === 'LAINNYA' && !tujuanLainnya.trim()) {
+    if (tujuanProses === 'LAINNYA' && !tujuanLainnya.trim()) {
       setNotif({ type: 'error', message: 'Tujuan lainnya wajib diisi.' });
       return;
     }
 
-    if (tujuanProduksi === 'LAINNYA' && !noKendaraan.trim()) {
+    if (tujuanProses === 'LAINNYA' && !noKendaraan.trim()) {
       setNotif({
         type: 'error',
         message: 'No kendaraan / identitas pengambil wajib diisi jika pilih Lainnya.',
@@ -1981,9 +2026,9 @@ async function openHistoryWasteMasuk() {
       p_no_batch_bubuk: selectedKirim.no_batch_bubuk,
       p_qty_kirim: qty,
       p_qty_pcs_kirim: Number.isNaN(qtyPcs) ? 0 : qtyPcs,
-      p_tujuan_produksi: tujuanProduksi,
+      p_tujuan_proses: tujuanProses,
       p_tujuan_lainnya: tujuanLainnya || '',
-      p_no_kendaraan: tujuanProduksi === 'LAINNYA' ? noKendaraan : '',
+      p_no_kendaraan: tujuanProses === 'LAINNYA' ? noKendaraan : '',
       p_keterangan: keteranganKirim || '',
       p_created_by: pinUser,
     });
@@ -2373,7 +2418,7 @@ const dashboardTrendSummary = useMemo(() => {
     if (tergilingPct < 35) {
       conclusion = 'Waste masuk tinggi, namun yang selesai tergiling masih rendah. Prioritaskan proses giling/FIFO supaya stok waste tidak menumpuk.';
     } else if (releasePct < 35) {
-      conclusion = 'Hasil bersih sudah terbentuk, tetapi pengiriman/bon masih rendah. Cek kebutuhan produksi atau jadwalkan pengeluaran bubuk bersih.';
+      conclusion = 'Hasil bersih sudah terbentuk, tetapi pengiriman/bon masih rendah. Cek kebutuhan proses atau jadwalkan pengeluaran bubuk bersih.';
     } else if (yieldPct < 70) {
       conclusion = 'Yield bersih terlihat rendah. Perlu cek kualitas waste, setup crusher/giling, dan penyebab kotor tinggi.';
     } else {
@@ -2544,6 +2589,22 @@ const dashboardTopWasteSourceMax = useMemo(() => {
   return Math.max(1, ...dashboardTopWasteSource.map((item) => item.qty || 0));
 }, [dashboardTopWasteSource]);
 
+const reportFilteredDashboard = useMemo(() => {
+  const matchReportFilters = (item) => {
+    const shiftOk = reportShiftFilter === 'ALL' || normalizeReportShift(item.shift) === reportShiftFilter;
+    const areaOk = reportAreaFilter === 'ALL' || normalizeReportArea(item.area_asal) === reportAreaFilter;
+    const plantOk = reportPlantFilter === 'ALL' || normalizeReportPlant(item.plant_asal || item.plant) === reportPlantFilter;
+    return shiftOk && areaOk && plantOk;
+  };
+
+  return {
+    wasteMasuk: dashboardFiltered.wasteMasuk.filter(matchReportFilters),
+    hasilGiling: dashboardFiltered.hasilGiling.filter(matchReportFilters),
+    prosesGiling: dashboardFiltered.prosesGiling.filter(matchReportFilters),
+    pengiriman: dashboardFiltered.pengiriman.filter(matchReportFilters),
+  };
+}, [dashboardFiltered, reportShiftFilter, reportAreaFilter, reportPlantFilter]);
+
 const dashboardShiftReport = useMemo(() => {
   const shiftMap = new Map();
 
@@ -2573,7 +2634,7 @@ const dashboardShiftReport = useMemo(() => {
   REPORT_SHIFT_ORDER.forEach((shift) => ensureShift(shift));
 
   const wasteMap = new Map();
-  dashboardFiltered.wasteMasuk.forEach((item) => {
+  reportFilteredDashboard.wasteMasuk.forEach((item) => {
     const shift = normalizeReportShift(item.shift);
     const area = normalizeReportArea(item.area_asal);
     const plant = normalizeReportPlant(item.plant_asal || item.plant);
@@ -2608,7 +2669,7 @@ const dashboardShiftReport = useMemo(() => {
   });
 
   const hasilMap = new Map();
-  dashboardFiltered.hasilGiling.forEach((item) => {
+  reportFilteredDashboard.hasilGiling.forEach((item) => {
     const shift = normalizeReportShift(item.shift);
     const nama = item.nama_bubuk || item.nama_waste || '-';
     const kode = item.kode_bubuk || item.kode_waste || '';
@@ -2639,7 +2700,7 @@ const dashboardShiftReport = useMemo(() => {
   });
 
   const progressMap = new Map();
-  dashboardFiltered.prosesGiling.forEach((item) => {
+  reportFilteredDashboard.prosesGiling.forEach((item) => {
     const progressKg = Number(item.sisa_proses_giling || 0);
     if (progressKg <= 0) return;
 
@@ -2667,7 +2728,7 @@ const dashboardShiftReport = useMemo(() => {
   });
 
   const bonanMap = new Map();
-  dashboardFiltered.pengiriman.forEach((item) => {
+  reportFilteredDashboard.pengiriman.forEach((item) => {
     const shift = normalizeReportShift(item.shift);
     const nama = item.nama_bubuk || '-';
     const kode = item.kode_bubuk || '';
@@ -2696,6 +2757,7 @@ const dashboardShiftReport = useMemo(() => {
   });
 
   const shifts = [...shiftMap.values()]
+    .filter((item) => reportShiftFilter === 'ALL' || item.shift === reportShiftFilter)
     .sort((a, b) => getShiftRank(a.shift) - getShiftRank(b.shift))
     .map((item) => ({
       ...item,
@@ -2720,7 +2782,7 @@ const dashboardShiftReport = useMemo(() => {
   );
 
   return { shifts, totals };
-}, [dashboardFiltered]);
+}, [reportFilteredDashboard, reportShiftFilter]);
 
 const dashboardYieldAnomalies = useMemo(() => {
   return dashboardFiltered.hasilGiling
@@ -4082,7 +4144,7 @@ async function rejectStockAdjustment(item) {
       <button className="menu-card" onClick={() => setPage('pengirimanBersih')}>
         <b>4</b>
         <span>Pengiriman Bubuk Bersih</span>
-        <small>Kirim ke Produksi 1112 / 1113 / lainnya</small>
+        <small>Kirim ke Proses 1112 / 1113 / lainnya</small>
       </button>
 
       <button className="menu-card" onClick={() => setPage('pengeluaranKotor')}>
@@ -4953,8 +5015,8 @@ async function rejectStockAdjustment(item) {
     <div className="dashboard-tabs print-hide">
       {[
         ['overview', 'Overview'],
-        ['trend', 'Trend & Chart'],
-        ['source', 'Sumber Waste'],
+        ['trend', 'Trend Grafik'],
+        ['source', 'Data Sumber Waste'],
         ['top', 'Top Waste'],
         ['hasil', 'Analisa Giling'],
         ['aging', 'Lifetime / Slow Moving'],
@@ -5774,12 +5836,37 @@ async function rejectStockAdjustment(item) {
           </div>
         </div>
 
+        <div className="shift-report-controls print-hide">
+          <div>
+            <label>Shift</label>
+            <select value={reportShiftFilter} onChange={(e) => setReportShiftFilter(e.target.value)}>
+              <option value="ALL">Semua Shift</option>
+              {REPORT_SHIFT_ORDER.map((shift) => <option key={shift} value={shift}>{shift}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Area</label>
+            <select value={reportAreaFilter} onChange={(e) => setReportAreaFilter(e.target.value)}>
+              <option value="ALL">Semua Area</option>
+              {AREA_OPTIONS.map((area) => <option key={area} value={area}>{displayAreaLabel(area)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Plant</label>
+            <select value={reportPlantFilter} onChange={(e) => setReportPlantFilter(e.target.value)}>
+              <option value="ALL">Semua Plant</option>
+              <option value="1112">1112</option>
+              <option value="1113">1113</option>
+            </select>
+          </div>
+        </div>
+
         <div className="shift-report-sheet">
           <div className="shift-report-title">
             <div>
               <span>BSWP SHIFT REPORT</span>
               <h3>Laporan Waste, Giling, dan Bonan</h3>
-              <small>{dashStartDate === dashEndDate ? dashStartDate : `${dashStartDate} s/d ${dashEndDate}`} • dibuat {formatDate(clock)} {formatTime(clock)}</small>
+              <small>{dashStartDate === dashEndDate ? dashStartDate : `${dashStartDate} s/d ${dashEndDate}`} • Shift {reportShiftFilter === 'ALL' ? 'ALL' : reportShiftFilter} • Area {reportAreaFilter === 'ALL' ? 'ALL' : displayAreaLabel(reportAreaFilter)} • Plant {reportPlantFilter}</small>
             </div>
             <div className="shift-report-badges">
               <b>{getShiftByDate(clock)}</b>
@@ -5975,7 +6062,7 @@ async function rejectStockAdjustment(item) {
                   </small>
                   <small>
                     Rekomendasi: {isAging
-                      ? 'Evaluasi demand/bon produksi. Jika tidak bergerak, siapkan rencana pakai cepat, jual, musnahkan, atau adjustment.'
+                      ? 'Evaluasi demand/bon proses. Jika tidak bergerak, siapkan rencana pakai cepat, jual, musnahkan, atau adjustment.'
                       : item.expiredStatus.level === 'expired'
                       ? 'STOP pakai normal, follow up pemusnahan / jual / adjustment.'
                       : item.expiredStatus.level === '1bulan'
@@ -6033,8 +6120,8 @@ async function rejectStockAdjustment(item) {
         </div>
 
         <div>
-          <span>Shift</span>
-          <b>{getShiftByDate(clock)}</b>
+          <span>Shift Dipilih</span>
+          <b>{wasteShiftManual || '-'}</b>
         </div>
 
         <div>
@@ -6044,7 +6131,33 @@ async function rejectStockAdjustment(item) {
       </div>
     </div>
 
-    <form className="form-wrap" onSubmit={submitWasteMasuk}>
+    <form className="form-wrap mobile-first-form" onSubmit={submitWasteMasuk}>
+      <div className="shift-question-card">
+        <div>
+          <label>Shift Penerimaan</label>
+          <select value={wasteShiftManual} onChange={(e) => setWasteShiftManual(e.target.value)}>
+            <option value="">Pilih shift</option>
+            {SHIFT_MANUAL_OPTIONS.map((shift) => (
+              <option key={shift} value={shift}>{shift.replace('SHIFT ', '')}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>Verifikasi</label>
+          <input
+            value={wasteShiftVerify}
+            onChange={(e) => setWasteShiftVerify(e.target.value)}
+            placeholder={wasteShiftManual ? `Ketik YA ${normalizeReportShift(wasteShiftManual)}` : 'Pilih shift dulu'}
+          />
+          <small>
+            {wasteShiftManual
+              ? `Apa benar kamu melakukan penerimaan waste ${normalizeReportShift(wasteShiftManual)}?`
+              : 'Shift tidak lagi otomatis dari jam. Pilih shift aktual operator.'}
+          </small>
+        </div>
+      </div>
+
       <div className="inline-2 pro-row">
         <div>
           <label>Kategori Waste</label>
@@ -6075,16 +6188,6 @@ async function rejectStockAdjustment(item) {
         </div>
       </div>
 
-      <label>Area Asal</label>
-      <select value={areaAsal} onChange={(e) => setAreaAsal(e.target.value)}>
-        <option value="">Pilih area asal</option>
-        {AREA_OPTIONS.map((area) => (
-          <option key={area} value={area}>
-            {area}
-          </option>
-        ))}
-      </select>
-
       <div className="batch-header">
         <div>
           <b>Detail Waste</b>
@@ -6101,7 +6204,7 @@ async function rejectStockAdjustment(item) {
           const suggestions = getFilteredWasteByKeyword(row.search);
 
           return (
-            <section className="waste-row-card" key={row.rowId}>
+            <section className={`waste-row-card ${areaClassName(row.areaAsal)}`} key={row.rowId}>
               <div className="row-card-title">
                 <b>Waste {index + 1}</b>
 
@@ -6123,6 +6226,22 @@ async function rejectStockAdjustment(item) {
                       Hapus
                     </button>
                   )}
+                </div>
+              </div>
+
+              <div className="area-toggle-row">
+                <label>Area Asal / Asal Waste</label>
+                <div className="area-toggle-options">
+                  {AREA_OPTIONS.map((area) => (
+                    <button
+                      type="button"
+                      key={`${row.rowId}-${area}`}
+                      className={`area-toggle-btn ${normalizeReportArea(row.areaAsal) === area ? 'active' : ''} ${areaClassName(area)}`}
+                      onClick={() => updateWasteRow(row.rowId, { areaAsal: area })}
+                    >
+                      {displayAreaLabel(area)}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -6184,11 +6303,11 @@ async function rejectStockAdjustment(item) {
 
               {row.selectedWaste && (
                 <div
-                  className={
+                  className={`${
                     row.selectedWaste.tipe_waste === 'KOTOR'
                       ? 'detail-box danger-box'
                       : 'detail-box'
-                  }
+                  } ${areaClassName(row.areaAsal)}`}
                 >
                   <div className="detail-title">
                     {row.selectedWaste.tipe_waste === 'KOTOR'
@@ -6197,6 +6316,9 @@ async function rejectStockAdjustment(item) {
                   </div>
 
                   <div className="detail-grid compact-detail">
+  <span>Area</span>
+  <b>{row.areaAsal ? displayAreaLabel(row.areaAsal) : '-'}</b>
+
   <span>Waste</span>
   <b>{row.selectedWaste.nama_waste}</b>
 
@@ -6590,7 +6712,7 @@ async function rejectStockAdjustment(item) {
       {page === 'pengirimanBersih' && (
         <main className="page-card">
           <div className="info-card">
-            <h3>Info Pengiriman ke Produksi</h3>
+            <h3>Info Pengiriman ke Proses</h3>
             <div className="info-grid">
               <div><span>Tanggal</span><b>{formatDate(clock)}</b></div>
               <div><span>Jam</span><b>{formatTime(clock)}</b></div>
@@ -6682,11 +6804,11 @@ async function rejectStockAdjustment(item) {
               placeholder="Auto, bisa diedit"
             />
 
-            <label>Tujuan Produksi</label>
+            <label>Tujuan Proses</label>
             <select
-              value={tujuanProduksi}
+              value={tujuanProses}
               onChange={(e) => {
-                setTujuanProduksi(e.target.value);
+                setTujuanProses(e.target.value);
                 if (e.target.value !== 'LAINNYA') {
                   setTujuanLainnya('');
                   setNoKendaraan('');
@@ -6694,14 +6816,14 @@ async function rejectStockAdjustment(item) {
               }}
             >
               <option value="">Pilih tujuan</option>
-              {TUJUAN_PRODUKSI_OPTIONS.map((item) => (
+              {TUJUAN_PROSES_OPTIONS.map((item) => (
                 <option key={item} value={item}>
-                  {item === 'LAINNYA' ? 'Lainnya' : `Produksi ${item}`}
+                  {item === 'LAINNYA' ? 'Lainnya' : `Proses ${item}`}
                 </option>
               ))}
             </select>
 
-            {tujuanProduksi === 'LAINNYA' && (
+            {tujuanProses === 'LAINNYA' && (
               <>
                 <label>Tujuan Lainnya</label>
                 <input
@@ -6727,10 +6849,10 @@ async function rejectStockAdjustment(item) {
                   <span>PCS Kirim</span><b>{qtyPcsKirim || 0}</b>
                   <span>Tujuan</span>
                   <b>
-                    {tujuanProduksi === 'LAINNYA'
+                    {tujuanProses === 'LAINNYA'
                       ? tujuanLainnya || '-'
-                      : tujuanProduksi
-                      ? `Produksi ${tujuanProduksi}`
+                      : tujuanProses
+                      ? `Proses ${tujuanProses}`
                       : '-'}
                   </b>
                 </div>
