@@ -70,6 +70,12 @@ const DASHBOARD_FLOW_OPTIONS = [
 
 const REPORT_SHIFT_ORDER = ['SHIFT 1', 'SHIFT 2', 'SHIFT 3'];
 const SHIFT_MANUAL_OPTIONS = ['SHIFT 1', 'SHIFT 2', 'SHIFT 3'];
+const SHIFT_PIN_MAP = {
+  'SHIFT 1': '111',
+  'SHIFT 2': '222',
+  'SHIFT 3': '333',
+};
+const SHIFT_PIN_LENGTH = 3;
 
 function displayAreaLabel(value) {
   const area = normalizeReportArea(value);
@@ -87,9 +93,15 @@ function areaClassName(value) {
 
 function isShiftVerificationValid(shiftValue, answerValue) {
   const shift = normalizeReportShift(shiftValue);
-  const answer = String(answerValue || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  const pin = String(answerValue || '').replace(/\D/g, '');
   if (!SHIFT_MANUAL_OPTIONS.includes(shift)) return false;
-  return answer === 'YA' || answer === 'BENAR' || answer === `YA ${shift}` || answer === `BENAR ${shift}`;
+  return pin === SHIFT_PIN_MAP[shift];
+}
+
+function getShiftPinHint(shiftValue) {
+  const shift = normalizeReportShift(shiftValue);
+  if (!SHIFT_MANUAL_OPTIONS.includes(shift)) return 'Pilih shift dulu, lalu masukkan PIN shift.';
+  return `Masukkan PIN khusus ${shift}.`;
 }
 
 const REPORT_SOURCE_BUCKETS = [
@@ -1673,6 +1685,35 @@ function resetWasteMasukBatchForm() {
   setWasteRows([createWasteRow()]);
 }
 
+function handleWasteShiftChange(value) {
+  clearAllNotifs();
+  setWasteShiftManual(value);
+  setWasteShiftVerify('');
+}
+
+function handleWasteShiftPinPress(value) {
+  clearAllNotifs();
+  if (!wasteShiftManual) {
+    setNotif({ type: 'error', message: 'Pilih shift dulu.' });
+    return;
+  }
+
+  setWasteShiftVerify((prev) => {
+    if (String(prev || '').length >= SHIFT_PIN_LENGTH) return prev;
+    return `${prev || ''}${value}`;
+  });
+}
+
+function handleWasteShiftPinBackspace() {
+  clearAllNotifs();
+  setWasteShiftVerify((prev) => String(prev || '').slice(0, -1));
+}
+
+function clearWasteShiftPin() {
+  clearAllNotifs();
+  setWasteShiftVerify('');
+}
+
 async function loadHistoryWasteMasuk(dateValue = historyWasteDate) {
   setLoadingHistoryWaste(true);
 
@@ -1729,7 +1770,8 @@ async function openHistoryWasteMasuk() {
   if (!isShiftVerificationValid(wasteShiftManual, wasteShiftVerify)) {
     setNotif({
       type: 'error',
-      message: `Verifikasi shift belum benar. Ketik YA atau YA ${normalizeReportShift(wasteShiftManual)}.`,
+      message: `PIN ${normalizeReportShift(wasteShiftManual)} belum benar.`,
+      detail: 'Cek kembali shift yang dipilih dan PIN shift-nya.',
     });
     return;
   }
@@ -6132,29 +6174,59 @@ async function rejectStockAdjustment(item) {
     </div>
 
     <form className="form-wrap mobile-first-form" onSubmit={submitWasteMasuk}>
-      <div className="shift-question-card">
-        <div>
-          <label>Shift Penerimaan</label>
-          <select value={wasteShiftManual} onChange={(e) => setWasteShiftManual(e.target.value)}>
-            <option value="">Pilih shift</option>
-            {SHIFT_MANUAL_OPTIONS.map((shift) => (
-              <option key={shift} value={shift}>{shift.replace('SHIFT ', '')}</option>
-            ))}
-          </select>
+      <div className="shift-pin-card">
+        <div className="shift-pin-head">
+          <div>
+            <label>Shift Penerimaan</label>
+            <div className="shift-pin-options">
+              {SHIFT_MANUAL_OPTIONS.map((shift) => (
+                <button
+                  key={shift}
+                  type="button"
+                  className={`shift-pin-option ${wasteShiftManual === shift ? 'active' : ''}`}
+                  onClick={() => handleWasteShiftChange(shift)}
+                >
+                  {shift.replace('SHIFT ', '')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="shift-pin-status">
+            <span>Shift aktif</span>
+            <b>{wasteShiftManual || '-'}</b>
+            <small>{getShiftPinHint(wasteShiftManual)}</small>
+          </div>
         </div>
 
-        <div>
-          <label>Verifikasi</label>
-          <input
-            value={wasteShiftVerify}
-            onChange={(e) => setWasteShiftVerify(e.target.value)}
-            placeholder={wasteShiftManual ? `Ketik YA ${normalizeReportShift(wasteShiftManual)}` : 'Pilih shift dulu'}
-          />
-          <small>
-            {wasteShiftManual
-              ? `Apa benar kamu melakukan penerimaan waste ${normalizeReportShift(wasteShiftManual)}?`
-              : 'Shift tidak lagi otomatis dari jam. Pilih shift aktual operator.'}
-          </small>
+        <div className="shift-pin-panel">
+          <div className="shift-pin-dots" aria-label="PIN shift">
+            {[0, 1, 2].map((item) => (
+              <span key={item} className={wasteShiftVerify[item] ? 'filled' : ''} />
+            ))}
+          </div>
+
+          <div className="shift-mini-keypad">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+              <button
+                key={num}
+                type="button"
+                className="shift-keypad-btn"
+                onClick={() => handleWasteShiftPinPress(String(num))}
+              >
+                {num}
+              </button>
+            ))}
+            <button type="button" className="shift-keypad-btn secondary" onClick={handleWasteShiftPinBackspace}>
+              ⌫
+            </button>
+            <button type="button" className="shift-keypad-btn" onClick={() => handleWasteShiftPinPress('0')}>
+              0
+            </button>
+            <button type="button" className="shift-keypad-btn secondary" onClick={clearWasteShiftPin}>
+              C
+            </button>
+          </div>
         </div>
       </div>
 
