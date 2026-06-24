@@ -71,11 +71,11 @@ const DASHBOARD_FLOW_OPTIONS = [
 const REPORT_SHIFT_ORDER = ['SHIFT 1', 'SHIFT 2', 'SHIFT 3'];
 const SHIFT_MANUAL_OPTIONS = ['SHIFT 1', 'SHIFT 2', 'SHIFT 3'];
 const SHIFT_PIN_MAP = {
-  'SHIFT 1': '111',
-  'SHIFT 2': '222',
-  'SHIFT 3': '333',
+  'SHIFT 1': '1111',
+  'SHIFT 2': '2222',
+  'SHIFT 3': '3333',
 };
-const SHIFT_PIN_LENGTH = 3;
+const SHIFT_PIN_LENGTH = 4;
 
 function displayAreaLabel(value) {
   const area = normalizeReportArea(value);
@@ -101,7 +101,7 @@ function isShiftVerificationValid(shiftValue, answerValue) {
 function getShiftPinHint(shiftValue) {
   const shift = normalizeReportShift(shiftValue);
   if (!SHIFT_MANUAL_OPTIONS.includes(shift)) return 'Pilih shift dulu, lalu masukkan PIN shift.';
-  return `Masukkan PIN khusus ${shift}.`;
+  return `Masukkan PIN akses untuk membuka form ${shift}.`;
 }
 
 const REPORT_SOURCE_BUCKETS = [
@@ -695,6 +695,8 @@ const [noProKeterangan, setNoProKeterangan] = useState('');
 const [wasteRows, setWasteRows] = useState([createWasteRow()]);
 const [wasteShiftManual, setWasteShiftManual] = useState('');
 const [wasteShiftVerify, setWasteShiftVerify] = useState('');
+const [wasteShiftUnlocked, setWasteShiftUnlocked] = useState(false);
+const [wasteShiftError, setWasteShiftError] = useState('');
 
   const [searchGiling, setSearchGiling] = useState('');
   const [selectedGiling, setSelectedGiling] = useState(null);
@@ -1679,8 +1681,6 @@ function getFilteredWasteByKeyword(keyword) {
 function resetWasteMasukBatchForm() {
   setKategoriWaste('');
   setNoProKeterangan('');
-  setWasteShiftManual('');
-  setWasteShiftVerify('');
   setAreaAsal('');
   setWasteRows([createWasteRow()]);
 }
@@ -1689,29 +1689,61 @@ function handleWasteShiftChange(value) {
   clearAllNotifs();
   setWasteShiftManual(value);
   setWasteShiftVerify('');
+  setWasteShiftUnlocked(false);
+  setWasteShiftError('');
 }
 
 function handleWasteShiftPinPress(value) {
   clearAllNotifs();
+  setWasteShiftError('');
+
   if (!wasteShiftManual) {
-    setNotif({ type: 'error', message: 'Pilih shift dulu.' });
+    setWasteShiftError('Pilih shift dulu sebelum memasukkan PIN.');
     return;
   }
 
   setWasteShiftVerify((prev) => {
-    if (String(prev || '').length >= SHIFT_PIN_LENGTH) return prev;
-    return `${prev || ''}${value}`;
+    const next = `${prev || ''}${value}`.slice(0, SHIFT_PIN_LENGTH);
+
+    if (next.length === SHIFT_PIN_LENGTH) {
+      const shift = normalizeReportShift(wasteShiftManual);
+      if (next === SHIFT_PIN_MAP[shift]) {
+        setWasteShiftUnlocked(true);
+        setWasteShiftError('');
+        setNotif({
+          type: 'success',
+          message: `${shift} terbuka. Form Waste Masuk siap dipakai.`,
+        });
+        return '';
+      }
+
+      setWasteShiftUnlocked(false);
+      setWasteShiftError('PIN shift salah. Akses ditolak.');
+      return '';
+    }
+
+    return next;
   });
 }
 
 function handleWasteShiftPinBackspace() {
   clearAllNotifs();
+  setWasteShiftError('');
   setWasteShiftVerify((prev) => String(prev || '').slice(0, -1));
 }
 
 function clearWasteShiftPin() {
   clearAllNotifs();
+  setWasteShiftError('');
   setWasteShiftVerify('');
+}
+
+function lockWasteShiftAccess() {
+  clearAllNotifs();
+  setWasteShiftUnlocked(false);
+  setWasteShiftVerify('');
+  setWasteShiftError('');
+  setWasteShiftManual('');
 }
 
 async function loadHistoryWasteMasuk(dateValue = historyWasteDate) {
@@ -1767,11 +1799,11 @@ async function openHistoryWasteMasuk() {
     return;
   }
 
-  if (!isShiftVerificationValid(wasteShiftManual, wasteShiftVerify)) {
+  if (!wasteShiftUnlocked) {
     setNotif({
       type: 'error',
-      message: `PIN ${normalizeReportShift(wasteShiftManual)} belum benar.`,
-      detail: 'Cek kembali shift yang dipilih dan PIN shift-nya.',
+      message: `Akses ${normalizeReportShift(wasteShiftManual)} belum terbuka.`,
+      detail: 'Masukkan PIN shift yang benar sebelum input waste masuk.',
     });
     return;
   }
@@ -6173,61 +6205,96 @@ async function rejectStockAdjustment(item) {
       </div>
     </div>
 
-    <form className="form-wrap mobile-first-form" onSubmit={submitWasteMasuk}>
-      <div className="shift-pin-card">
-        <div className="shift-pin-head">
-          <div>
-            <label>Shift Penerimaan</label>
-            <div className="shift-pin-options">
-              {SHIFT_MANUAL_OPTIONS.map((shift) => (
-                <button
-                  key={shift}
-                  type="button"
-                  className={`shift-pin-option ${wasteShiftManual === shift ? 'active' : ''}`}
-                  onClick={() => handleWasteShiftChange(shift)}
-                >
-                  {shift.replace('SHIFT ', '')}
-                </button>
-              ))}
+    {!wasteShiftUnlocked && (
+      <section className="shift-access-gate">
+        <div className="shift-access-title">
+          <span>AKSES INPUT WASTE MASUK</span>
+          <h3>Pilih shift, lalu masukkan PIN akses</h3>
+          <p>Form Waste Masuk baru terbuka kalau PIN shift benar.</p>
+        </div>
+
+        <div className="shift-pin-card shift-gate-mode">
+          <div className="shift-pin-head">
+            <div>
+              <label>Shift Penerimaan</label>
+              <div className="shift-pin-options">
+                {SHIFT_MANUAL_OPTIONS.map((shift) => (
+                  <button
+                    key={shift}
+                    type="button"
+                    className={`shift-pin-option ${wasteShiftManual === shift ? 'active' : ''}`}
+                    onClick={() => handleWasteShiftChange(shift)}
+                  >
+                    {shift.replace('SHIFT ', '')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="shift-pin-status">
+              <span>Status akses</span>
+              <b>{wasteShiftManual || 'Pilih Shift'}</b>
+              <small>{getShiftPinHint(wasteShiftManual)}</small>
             </div>
           </div>
 
-          <div className="shift-pin-status">
-            <span>Shift aktif</span>
-            <b>{wasteShiftManual || '-'}</b>
-            <small>{getShiftPinHint(wasteShiftManual)}</small>
-          </div>
-        </div>
+          <div className="shift-pin-panel">
+            <div className="shift-pin-dots" aria-label="PIN shift">
+              {Array.from({ length: SHIFT_PIN_LENGTH }).map((_, item) => (
+                <span key={item} className={wasteShiftVerify[item] ? 'filled' : ''} />
+              ))}
+            </div>
 
-        <div className="shift-pin-panel">
-          <div className="shift-pin-dots" aria-label="PIN shift">
-            {[0, 1, 2].map((item) => (
-              <span key={item} className={wasteShiftVerify[item] ? 'filled' : ''} />
-            ))}
-          </div>
-
-          <div className="shift-mini-keypad">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-              <button
-                key={num}
-                type="button"
-                className="shift-keypad-btn"
-                onClick={() => handleWasteShiftPinPress(String(num))}
-              >
-                {num}
+            <div className="shift-mini-keypad">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  className="shift-keypad-btn"
+                  onClick={() => handleWasteShiftPinPress(String(num))}
+                >
+                  {num}
+                </button>
+              ))}
+              <button type="button" className="shift-keypad-btn secondary" onClick={handleWasteShiftPinBackspace}>
+                ⌫
               </button>
-            ))}
-            <button type="button" className="shift-keypad-btn secondary" onClick={handleWasteShiftPinBackspace}>
-              ⌫
-            </button>
-            <button type="button" className="shift-keypad-btn" onClick={() => handleWasteShiftPinPress('0')}>
-              0
-            </button>
-            <button type="button" className="shift-keypad-btn secondary" onClick={clearWasteShiftPin}>
-              C
-            </button>
+              <button type="button" className="shift-keypad-btn" onClick={() => handleWasteShiftPinPress('0')}>
+                0
+              </button>
+              <button type="button" className="shift-keypad-btn secondary" onClick={clearWasteShiftPin}>
+                C
+              </button>
+            </div>
+
+            {wasteShiftError && (
+              <div className="shift-access-error">{wasteShiftError}</div>
+            )}
           </div>
         </div>
+
+        <div className="bottom-actions">
+          <button type="button" className="ghost-btn wide" onClick={() => setPage('formMenu')}>
+            Back
+          </button>
+          <button type="button" className="ghost-btn wide" onClick={openHistoryWasteMasuk}>
+            Lihat History
+          </button>
+        </div>
+      </section>
+    )}
+
+    {wasteShiftUnlocked && (
+    <form className="form-wrap mobile-first-form" onSubmit={submitWasteMasuk}>
+      <div className="shift-access-open">
+        <div>
+          <span>AKSES SHIFT TERBUKA</span>
+          <b>{wasteShiftManual}</b>
+          <small>Semua input di form ini akan masuk ke {wasteShiftManual}.</small>
+        </div>
+        <button type="button" className="ghost-btn" onClick={lockWasteShiftAccess}>
+          Ganti Shift / Kunci
+        </button>
       </div>
 
       <div className="inline-2 pro-row">
@@ -6510,6 +6577,7 @@ async function rejectStockAdjustment(item) {
 </div>
 
     </form>
+    )}
 
     {notif && (
       <div className={`notif ${notif.type}`}>
