@@ -6381,6 +6381,429 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 /* ============================================================
+   BSWP UIX PREMIUM V3 — Super Dark + White Purple + Mobile HP
+   Paste di PALING BAWAH src/App.css / src/index.css
+   ============================================================ */
+
+:root {
+  --bg: #02030a;
+  --bg-soft: #050717;
+  --bg-mid: #090c22;
+  --card: rgba(7, 10, 28, 0.84);
+  --card-solid: #070a1c;
+  --glass: rgba(255, 255, 255, 0.045);
+  --glass-heavy: rgba(255, 255, 255, 0.08);
+  --text: #f8f9ff;
+  --text-2: #d6dcff;
+  --muted: #8891bd;
+  --line: rgba(170, 190, 255, 0.12);
+  --line-bright: rgba(190, 205, 255, 0.24);
+  --primary: #39ffd0;
+  --accent: #a78bfa;
+  --pink: #ff75d8;
+  --blue: #5cc8ff;
+  --gold: #ffd86b;
+  --danger: #ff5f7f;
+  --input-bg: rgba(3, 5, 18, 0.92);
+  --input-border: rgba(180, 195, 255, 0.18);
+  --shadow: 0 18px 60px rgba(0,0,0,.55);
+  --shadow-xl: 0 28px 90px rgba(0,0,0,.68);
+}
+
+:root[data-theme='light'] {
+  --bg: #fbf9ff;
+  --bg-soft: #ffffff;
+  --bg-mid: #f4efff;
+  --card: rgba(255, 255, 255, 0.88);
+  --card-solid: #ffffff;
+  --glass: rgba(99, 66, 245, 0.055);
+  --glass-heavy: rgba(99, 66, 245, 0.10);
+  --text: #171332;
+  --text-2: #332b68;
+  --muted: #756aa3;
+  --line: rgba(117, 82, 255, 0.16);
+  --line-bright: rgba(117, 82, 255, 0.28);
+  --primary: #6d4aff;
+  --accent: #8a5cff;
+  --pink: #cf45b8;
+  --blue: #4777e6;
+  --gold: #b8860b;
+  --danger: #d6335c;
+  --input-bg: rgba(255,255,255,.94);
+  --input-border: rgba(117,82,255,.22);
+  --shadow: 0 18px 50px rgba(85, 68, 170, .16);
+  --shadow-xl: 0 28px 80px rgba(85, 68, 170, .22);
+}
+
+body, #root {
+  background:
+    radial-gradient(circle at 12% 4%, rgba(57,255,208,.16), transparent 30%),
+    radial-gradient(circle at 88% 8%, rgba(167,139,250,.19), transparent 28%),
+    radial-gradient(circle at 70% 98%, rgba(255,117,216,.13), transparent 34%),
+    linear-gradient(180deg, #02030a 0%, #050716 48%, #08051a 100%) !important;
+}
+
+:root[data-theme='light'] body,
+:root[data-theme='light'] #root {
+  background:
+    radial-gradient(circle at 10% 4%, rgba(117,82,255,.16), transparent 30%),
+    radial-gradient(circle at 90% 8%, rgba(207,69,184,.13), transparent 30%),
+    linear-gradient(180deg, #ffffff 0%, #f7f2ff 55%, #fbf9ff 100%) !important;
+}
+
+.app-shell { padding: 14px !important; }
+.page-card,
+.topbar {
+  border-radius: 26px !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+.topbar {
+  align-items: center !important;
+  position: sticky;
+  top: 8px;
+  z-index: 50;
+}
+
+.topbar h1 { font-size: clamp(20px, 3vw, 28px) !important; }
+.header-actions { gap: 8px !important; }
+
+.dashboard-toolbar {
+  padding: 14px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 24px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03)) !important;
+  box-shadow: 0 14px 45px rgba(0,0,0,.24) !important;
+}
+
+.filter-grid {
+  grid-template-columns: repeat(6, minmax(135px, 1fr)) !important;
+  align-items: end !important;
+  gap: 10px !important;
+}
+
+.filter-grid label,
+.shift-report-controls label,
+.shift-question-card label,
+.area-toggle-row label {
+  color: var(--text-2) !important;
+  font-size: 10px !important;
+  letter-spacing: .10em !important;
+}
+
+input, select, textarea {
+  min-height: 48px;
+  border-radius: 16px !important;
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+}
+
+button { -webkit-tap-highlight-color: transparent; }
+.submit-btn,
+.btn-primary {
+  min-height: 52px;
+  border-radius: 18px !important;
+  letter-spacing: .02em;
+}
+
+/* ---------- Input Waste Masuk mobile-first ---------- */
+.mobile-first-form {
+  gap: 16px !important;
+}
+
+.shift-question-card {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(57,255,208,.22);
+  background:
+    linear-gradient(135deg, rgba(57,255,208,.12), rgba(167,139,250,.10)),
+    rgba(255,255,255,.035);
+  box-shadow: 0 12px 36px rgba(0,0,0,.28);
+}
+
+.shift-question-card small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.area-toggle-row {
+  margin-bottom: 14px;
+}
+
+.area-toggle-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.area-toggle-btn {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--glass);
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.area-toggle-btn.area-proses.active {
+  color: #05120f;
+  border-color: rgba(57,255,208,.75);
+  background: linear-gradient(135deg, #39ffd0, #5cc8ff);
+  box-shadow: 0 12px 28px rgba(57,255,208,.22);
+}
+
+.area-toggle-btn.area-packing.active {
+  color: #fff;
+  border-color: rgba(255,117,216,.65);
+  background: linear-gradient(135deg, #a78bfa, #ff75d8);
+  box-shadow: 0 12px 28px rgba(255,117,216,.20);
+}
+
+.waste-row-card {
+  border-radius: 24px !important;
+  padding: 16px !important;
+  background: rgba(255,255,255,.045) !important;
+  border: 1px solid var(--line) !important;
+}
+
+.waste-row-card.area-proses {
+  border-color: rgba(57,255,208,.35) !important;
+  box-shadow: inset 4px 0 0 rgba(57,255,208,.9), 0 14px 40px rgba(0,0,0,.20) !important;
+}
+
+.waste-row-card.area-packing {
+  border-color: rgba(255,117,216,.34) !important;
+  box-shadow: inset 4px 0 0 rgba(255,117,216,.85), 0 14px 40px rgba(0,0,0,.20) !important;
+}
+
+.detail-box.area-proses {
+  border-color: rgba(57,255,208,.34) !important;
+  background: rgba(57,255,208,.10) !important;
+}
+
+.detail-box.area-packing {
+  border-color: rgba(255,117,216,.32) !important;
+  background: rgba(255,117,216,.10) !important;
+}
+
+/* ---------- Dashboard and report ---------- */
+.dashboard-lux-hero {
+  border-radius: 30px !important;
+  background: linear-gradient(135deg, rgba(57,255,208,.13), rgba(167,139,250,.13), rgba(255,117,216,.08)) !important;
+}
+
+.dashboard-tabs {
+  padding: 8px !important;
+  border-radius: 20px !important;
+  background: rgba(255,255,255,.04) !important;
+  border: 1px solid var(--line) !important;
+  gap: 6px !important;
+}
+
+.dashboard-tabs button {
+  border-radius: 15px !important;
+  min-height: 40px !important;
+  font-weight: 900 !important;
+}
+
+.shift-report-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255,255,255,.045);
+}
+
+.shift-report-sheet {
+  max-width: 1080px;
+  margin: 0 auto;
+  border-radius: 24px !important;
+  background: #060819 !important;
+  color: #f8f9ff !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,.45) !important;
+}
+
+.shift-report-title {
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, rgba(57,255,208,.16), rgba(167,139,250,.17), rgba(255,117,216,.09)) !important;
+  padding: 14px !important;
+}
+
+.shift-report-title h3 { font-size: clamp(18px, 4vw, 28px) !important; }
+.shift-report-title small { color: rgba(248,249,255,.72) !important; }
+
+.shift-report-kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.shift-report-kpi-grid > div,
+.shift-mini-table,
+.shift-report-block {
+  border-radius: 18px !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  background: rgba(255,255,255,.045) !important;
+}
+
+.shift-report-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr 1fr !important;
+  gap: 10px !important;
+}
+
+.shift-mini-head {
+  border-radius: 14px !important;
+  background: rgba(255,255,255,.065) !important;
+}
+
+.shift-mini-table table {
+  font-size: 11px !important;
+}
+
+.shift-mini-table th,
+.shift-mini-table td {
+  padding: 6px 5px !important;
+}
+
+.shift-report-capture-mode {
+  width: 1080px !important;
+  max-width: 1080px !important;
+  padding: 18px !important;
+}
+
+/* ---------- Mobile HP ---------- */
+@media (max-width: 760px) {
+  .app-shell { padding: 8px !important; }
+  .topbar {
+    top: 4px;
+    padding: 10px 12px !important;
+    border-radius: 18px !important;
+    align-items: flex-start !important;
+  }
+  .topbar h1 { font-size: 19px !important; }
+  .topbar p { font-size: 11px !important; }
+  .header-actions { justify-content: flex-start !important; }
+  .theme-pill, .ghost-btn, .mini-btn { min-height: 38px; padding: 8px 10px !important; }
+
+  .page-card {
+    padding: 12px !important;
+    border-radius: 22px !important;
+  }
+
+  .hero-card,
+  .dashboard-lux-hero {
+    grid-template-columns: 1fr !important;
+    padding: 16px !important;
+    border-radius: 22px !important;
+  }
+
+  .hero-stats,
+  .info-grid,
+  .dashboard-summary,
+  .capacity-summary-grid,
+  .shift-report-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .menu-grid,
+  .home-menu-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .menu-card {
+    min-height: 92px !important;
+    border-radius: 22px !important;
+    text-align: left !important;
+    align-items: flex-start !important;
+  }
+
+  .inline-2,
+  .inline-3,
+  .inline-4,
+  .pro-row,
+  .waste-line-row,
+  .shift-question-card,
+  .filter-grid,
+  .shift-report-controls {
+    grid-template-columns: 1fr !important;
+  }
+
+  .waste-row-list { gap: 12px !important; }
+  .waste-row-card { padding: 14px !important; border-radius: 22px !important; }
+  .row-card-title { align-items: flex-start !important; gap: 8px !important; }
+  .row-actions { width: 100%; justify-content: flex-start !important; }
+  .search-row { gap: 6px !important; }
+  .clear-btn { min-width: 42px !important; height: 48px !important; }
+  .suggestion-box { max-height: 260px !important; }
+
+  .bottom-actions {
+    position: sticky;
+    bottom: 8px;
+    z-index: 30;
+    background: rgba(3,5,18,.82);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 8px;
+  }
+
+  :root[data-theme='light'] .bottom-actions {
+    background: rgba(255,255,255,.86);
+  }
+
+  .dashboard-toolbar { padding: 10px !important; }
+  .quick-filter-row {
+    display: flex !important;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    gap: 7px !important;
+  }
+  .quick-filter-row .chip-btn { flex: 0 0 auto; }
+
+  .dashboard-tabs {
+    display: flex !important;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding: 7px !important;
+  }
+  .dashboard-tabs button { flex: 0 0 auto; }
+
+  .shift-report-section { padding: 8px !important; }
+  .dashboard-section-head { gap: 10px !important; align-items: flex-start !important; }
+  .report-action-row {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px !important;
+  }
+  .report-action-row .mini-btn { justify-content: center; padding: 9px 6px !important; font-size: 11px !important; }
+
+  .shift-report-sheet {
+    border-radius: 20px !important;
+    padding: 10px !important;
+    overflow: hidden;
+  }
+  .shift-report-title { display: block !important; }
+  .shift-report-badges { margin-top: 8px; display: inline-flex !important; }
+  .shift-report-grid { grid-template-columns: 1fr !important; }
+  .shift-mini-table table { font-size: 10px !important; }
+  .shift-mini-table th,
+  .shift-mini-table td { padding: 5px 4px !important; }
+}
+
+/* ============================================================
    SHIFT PIN VERIFICATION — keypad style, no text question
    ============================================================ */
 .shift-pin-card {
@@ -6546,4 +6969,121 @@ button { -webkit-tap-highlight-color: transparent; }
     font-size: 18px;
   }
 }
+
+/* ============================================================
+   SHIFT ACCESS GATE — akses dulu, baru form terbuka
+   ============================================================ */
+.shift-access-gate {
+  display: grid;
+  gap: 16px;
+  padding: 2px 0 4px;
+}
+
+.shift-access-title {
+  border: 1px solid rgba(167, 139, 250, 0.18);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(57, 255, 208, 0.16), transparent 44%),
+    radial-gradient(circle at 98% 12%, rgba(167, 139, 250, 0.18), transparent 48%),
+    rgba(255, 255, 255, 0.035);
+  border-radius: 26px;
+  padding: 18px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+.shift-access-title span,
+.shift-access-open span {
+  display: block;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: 0.13em;
+}
+
+.shift-access-title h3 {
+  margin: 6px 0 4px;
+  font-family: 'Syne', Inter, sans-serif;
+  font-size: clamp(22px, 5vw, 36px);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.shift-access-title p,
+.shift-access-open small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shift-gate-mode {
+  margin-top: 0;
+}
+
+.shift-access-error {
+  border: 1px solid rgba(255, 77, 109, 0.38);
+  background: rgba(255, 77, 109, 0.12);
+  color: var(--danger);
+  border-radius: 16px;
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.shift-access-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(57, 255, 208, 0.26);
+  background:
+    linear-gradient(135deg, rgba(57, 255, 208, 0.13), rgba(167, 139, 250, 0.08)),
+    rgba(255, 255, 255, 0.035);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.26);
+}
+
+.shift-access-open b {
+  display: block;
+  margin: 2px 0 2px;
+  font-family: 'Syne', Inter, sans-serif;
+  font-size: 25px;
+  letter-spacing: -0.035em;
+}
+
+.shift-access-open .ghost-btn {
+  width: auto;
+  min-width: 150px;
+  justify-content: center;
+}
+
+.shift-pin-card.shift-gate-mode .shift-pin-panel {
+  position: relative;
+}
+
+:root[data-theme='light'] .shift-access-title,
+:root[data-theme='light'] .shift-access-open {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(99, 66, 245, 0.12), transparent 44%),
+    radial-gradient(circle at 98% 12%, rgba(212, 60, 174, 0.12), transparent 48%),
+    rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 42px rgba(99, 66, 245, 0.12);
+}
+
+@media (max-width: 780px) {
+  .shift-access-title {
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .shift-access-open {
+    align-items: stretch;
+    flex-direction: column;
+    border-radius: 20px;
+  }
+
+  .shift-access-open .ghost-btn {
+    width: 100%;
+  }
+}
+
 
